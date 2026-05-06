@@ -51,13 +51,13 @@ export default function Home() {
     }
 
     if (profile.role === "teacher") {
-      router.push("/announcements");
+      router.push("/teacher");
     } else if (profile.role === "student") {
       router.push("/student dashboard");
     } else if (profile.role === "admin") {
       router.push("/admin");
     } else if (profile.role === "parent") {
-      router.push("/dashboard");
+      router.push("/dashboard/parent");
     } else {
       router.push("/");
     }
