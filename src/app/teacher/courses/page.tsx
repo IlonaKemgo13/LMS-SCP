@@ -19,7 +19,7 @@ export default function TeacherCoursesPage() {
     const fetchCourses = async () => {
       const supabase = createClient()
 
-      const teacherId = "PASTE_TEACHER_ID_HERE"
+      const teacherId = "405b56ca-8e7a-41e7-96dd-417041305cdf"
 
       const { data, error } = await supabase
         .from("courses")
