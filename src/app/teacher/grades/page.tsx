@@ -32,10 +32,12 @@ type Grade = {
 export default function TeacherGradesPage() {
   const supabase = createClient()
 
+  const [teacherId, setTeacherId] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [grades, setGrades] = useState<Grade[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const [selectedCourse, setSelectedCourse] = useState("")
   const [selectedStudent, setSelectedStudent] = useState("")
@@ -45,13 +47,16 @@ export default function TeacherGradesPage() {
   const [maxScore, setMaxScore] = useState("100")
   const [searchTerm, setSearchTerm] = useState("")
 
-  // TEMPORARY teacher id
-  const teacherId = "405b56ca-8e7a-41e7-96dd-417041305cdf"
+  useEffect(() => {
+    fetchCurrentTeacher()
+  }, [])
 
   useEffect(() => {
-    fetchCourses()
-    fetchGrades()
-  }, [])
+    if (teacherId) {
+      fetchCourses()
+      fetchGrades()
+    }
+  }, [teacherId])
 
   useEffect(() => {
     if (selectedCourse) {
@@ -62,15 +67,33 @@ export default function TeacherGradesPage() {
     }
   }, [selectedCourse])
 
+  const fetchCurrentTeacher = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error || !user) {
+      setErrorMessage("You must be logged in to manage grades.")
+      setLoading(false)
+      return
+    }
+
+    setTeacherId(user.id)
+  }
+
   const fetchCourses = async () => {
     const { data, error } = await supabase
       .from("courses")
       .select("id, title")
       .eq("teacher_id", teacherId)
 
-    if (!error && data) {
-      setCourses(data)
+    if (error) {
+      setErrorMessage(error.message)
+      return
     }
+
+    setCourses(data || [])
   }
 
   const fetchStudentsForCourse = async (courseId: string) => {
@@ -86,15 +109,20 @@ export default function TeacherGradesPage() {
       `)
       .eq("course_id", courseId)
 
-    if (!error && data) {
-      const formattedStudents =
-        data.map((item: any) => item.profiles).filter(Boolean) || []
-
-      setStudents(formattedStudents)
+    if (error) {
+      setErrorMessage(error.message)
+      return
     }
+
+    const formattedStudents =
+      data?.map((item: any) => item.profiles).filter(Boolean) || []
+
+    setStudents(formattedStudents)
   }
 
   const fetchGrades = async () => {
+    setLoading(true)
+
     const { data, error } = await supabase
       .from("grades")
       .select(`
@@ -114,15 +142,20 @@ export default function TeacherGradesPage() {
       .eq("teacher_id", teacherId)
       .order("created_at", { ascending: false })
 
-    if (!error && data) {
-      setGrades(data as unknown as Grade[])
+    if (error) {
+      setErrorMessage(error.message)
+      setLoading(false)
+      return
     }
 
+    setGrades((data as unknown as Grade[]) || [])
     setLoading(false)
   }
 
   const saveGrade = async () => {
-    if (!selectedCourse || !selectedStudent || !assessmentName || !score) return
+    if (!teacherId || !selectedCourse || !selectedStudent || !assessmentName || !score) {
+      return
+    }
 
     const { error } = await supabase.from("grades").insert({
       student_id: selectedStudent,
@@ -134,14 +167,17 @@ export default function TeacherGradesPage() {
       max_score: Number(maxScore),
     })
 
-    if (!error) {
-      setSelectedStudent("")
-      setAssessmentName("")
-      setAssessmentType("assignment")
-      setScore("")
-      setMaxScore("100")
-      fetchGrades()
+    if (error) {
+      setErrorMessage(error.message)
+      return
     }
+
+    setSelectedStudent("")
+    setAssessmentName("")
+    setAssessmentType("assignment")
+    setScore("")
+    setMaxScore("100")
+    fetchGrades()
   }
 
   const filteredGrades = useMemo(() => {
@@ -149,6 +185,15 @@ export default function TeacherGradesPage() {
       grade.assessment_name.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [grades, searchTerm])
+
+  if (errorMessage) {
+    return (
+      <section className="rounded-3xl bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-red-600">Error loading grades</h1>
+        <p className="mt-2 text-gray-600">{errorMessage}</p>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-8">
@@ -280,7 +325,8 @@ export default function TeacherGradesPage() {
 
             <button
               onClick={saveGrade}
-              className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-indigo-700"
+              disabled={!teacherId}
+              className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Save Grade
             </button>

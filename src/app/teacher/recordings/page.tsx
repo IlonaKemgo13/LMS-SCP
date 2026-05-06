@@ -22,6 +22,7 @@ type Recording = {
 export default function TeacherRecordingsPage() {
   const supabase = createClient()
 
+  const [teacherId, setTeacherId] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [recordings, setRecordings] = useState<Recording[]>([])
 
@@ -33,28 +34,52 @@ export default function TeacherRecordingsPage() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [audioPreviewUrl, setAudioPreviewUrl] = useState("")
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
-  const teacherId = "405b56ca-8e7a-41e7-96dd-417041305cdf"
-
   useEffect(() => {
-    fetchCourses()
-    fetchRecordings()
+    fetchCurrentTeacher()
   }, [])
 
+  useEffect(() => {
+    if (teacherId) {
+      fetchCourses()
+      fetchRecordings()
+    }
+  }, [teacherId])
+
+  const fetchCurrentTeacher = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error || !user) {
+      setErrorMessage("You must be logged in to manage recordings.")
+      return
+    }
+
+    setTeacherId(user.id)
+  }
+
   const fetchCourses = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("courses")
       .select("id, title")
       .eq("teacher_id", teacherId)
+
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
 
     setCourses(data || [])
   }
 
   const fetchRecordings = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("recordings")
       .select(`
         id,
@@ -69,6 +94,11 @@ export default function TeacherRecordingsPage() {
       .eq("teacher_id", teacherId)
       .order("created_at", { ascending: false })
 
+    if (error) {
+      setErrorMessage(error.message)
+      return
+    }
+
     setRecordings((data as unknown as Recording[]) || [])
   }
 
@@ -78,26 +108,30 @@ export default function TeacherRecordingsPage() {
       return
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-    const mediaRecorder = new MediaRecorder(stream)
-    mediaRecorderRef.current = mediaRecorder
-    audioChunksRef.current = []
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
 
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunksRef.current.push(event.data)
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data)
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        setAudioBlob(blob)
+        setAudioPreviewUrl(URL.createObjectURL(blob))
+
+        stream.getTracks().forEach((track) => track.stop())
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch {
+      alert("Microphone access was denied or is unavailable.")
     }
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-      setAudioBlob(blob)
-      setAudioPreviewUrl(URL.createObjectURL(blob))
-
-      stream.getTracks().forEach((track) => track.stop())
-    }
-
-    mediaRecorder.start()
-    setIsRecording(true)
   }
 
   const stopRecording = () => {
@@ -106,11 +140,12 @@ export default function TeacherRecordingsPage() {
   }
 
   const saveRecording = async () => {
-    if (!audioBlob || !selectedCourse || !title) return
+    if (!teacherId || !audioBlob || !selectedCourse || !title) return
 
     setLoading(true)
 
-    const fileName = `${teacherId}/${selectedCourse}/${Date.now()}-${title}.webm`
+    const safeTitle = title.replace(/[^a-z0-9]/gi, "-").toLowerCase()
+    const fileName = `${teacherId}/${selectedCourse}/${Date.now()}-${safeTitle}.webm`
 
     const { error: uploadError } = await supabase.storage
       .from("recordings")
@@ -152,6 +187,17 @@ export default function TeacherRecordingsPage() {
     setLoading(false)
   }
 
+  if (errorMessage) {
+    return (
+      <section className="rounded-3xl bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-red-600">
+          Error loading recordings
+        </h1>
+        <p className="mt-2 text-gray-600">{errorMessage}</p>
+      </section>
+    )
+  }
+
   return (
     <section className="space-y-8">
       <div className="rounded-3xl bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 p-8 text-white shadow-xl">
@@ -163,7 +209,7 @@ export default function TeacherRecordingsPage() {
 
         <p className="mt-3 max-w-2xl text-white/80">
           Record audio lessons directly from your browser and share them with
-          students and parents.
+          students.
         </p>
       </div>
 
@@ -246,7 +292,7 @@ export default function TeacherRecordingsPage() {
               {audioBlob && (
                 <button
                   onClick={saveRecording}
-                  disabled={loading}
+                  disabled={loading || !teacherId}
                   className="rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
                 >
                   {loading ? "Saving..." : "Save Recording"}

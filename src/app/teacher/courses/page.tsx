@@ -11,32 +11,54 @@ type Course = {
 }
 
 export default function TeacherCoursesPage() {
+  const supabase = createClient()
+
+  const [teacherId, setTeacherId] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      const supabase = createClient()
+    fetchCurrentTeacher()
+  }, [])
 
-      const teacherId = "405b56ca-8e7a-41e7-96dd-417041305cdf"
+  useEffect(() => {
+    if (teacherId) {
+      fetchCourses()
+    }
+  }, [teacherId])
 
-      const { data, error } = await supabase
-        .from("courses")
-        .select("id, title, code, description")
-        .eq("teacher_id", teacherId)
+  const fetchCurrentTeacher = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
 
-      if (error) {
-        setErrorMessage(error.message)
-      } else {
-        setCourses(data || [])
-      }
-
+    if (error || !user) {
+      setErrorMessage("You must be logged in to view assigned courses.")
       setLoading(false)
+      return
     }
 
-    fetchCourses()
-  }, [])
+    setTeacherId(user.id)
+  }
+
+  const fetchCourses = async () => {
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from("courses")
+      .select("id, title, code, description")
+      .eq("teacher_id", teacherId)
+
+    if (error) {
+      setErrorMessage(error.message)
+    } else {
+      setCourses(data || [])
+    }
+
+    setLoading(false)
+  }
 
   if (errorMessage) {
     return (
@@ -55,7 +77,9 @@ export default function TeacherCoursesPage() {
         <p className="text-sm font-semibold uppercase tracking-widest text-white/70">
           Teacher Workspace
         </p>
+
         <h1 className="mt-3 text-4xl font-bold">My Courses</h1>
+
         <p className="mt-3 max-w-2xl text-white/80">
           Access and manage all assigned courses, monitor course activity, and
           organize teaching resources efficiently.
@@ -68,11 +92,13 @@ export default function TeacherCoursesPage() {
           value={loading ? "..." : String(courses.length)}
           color="from-blue-500 to-cyan-400"
         />
+
         <StatCard
           title="Total Students"
           value="0"
           color="from-purple-500 to-pink-500"
         />
+
         <StatCard
           title="Announcements"
           value="0"
@@ -85,6 +111,7 @@ export default function TeacherCoursesPage() {
           <h2 className="text-2xl font-bold text-gray-900">
             Assigned Courses
           </h2>
+
           <p className="mt-1 text-gray-500">
             Courses currently assigned to this lecturer.
           </p>
@@ -120,6 +147,7 @@ function StatCard({
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
       <div className={`h-2 bg-linear-to-r ${color}`} />
+
       <div className="p-6">
         <p className="text-sm text-gray-500">{title}</p>
         <h2 className="mt-3 text-4xl font-bold text-gray-900">{value}</h2>

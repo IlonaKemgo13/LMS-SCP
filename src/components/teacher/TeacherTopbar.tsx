@@ -1,10 +1,44 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Bell } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+
+type Profile = {
+  id: string
+  full_name: string
+  email: string
+  role: string
+}
 
 export default function TeacherTopbar() {
-  // Later, replace this with logged-in lecturer data from Supabase
-  const lecturerName = "John Doe"
+  const supabase = createClient()
+
+  const [profile, setProfile] = useState<Profile | null>(null)
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const fetchProfile = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, role")
+      .eq("id", user.id)
+      .single()
+
+    if (!error && data) {
+      setProfile(data)
+    }
+  }
+
+  const lecturerName = profile?.full_name || "Lecturer"
 
   const initials = lecturerName
     .split(" ")
@@ -16,12 +50,16 @@ export default function TeacherTopbar() {
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
       <div>
         <h2 className="text-lg font-semibold">Teacher Dashboard</h2>
-        <p className="text-sm text-gray-500">Manage your academic content</p>
+
+        <p className="text-sm text-gray-500">
+          Manage your academic content
+        </p>
       </div>
 
       <div className="flex items-center gap-5">
-        <button className="relative rounded-full p-2 hover:bg-gray-100">
+        <button className="relative rounded-full p-2 transition hover:bg-gray-100">
           <Bell className="h-5 w-5 text-gray-700" />
+
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
         </button>
 

@@ -22,6 +22,7 @@ type Announcement = {
 export default function TeacherAnnouncementsPage() {
   const supabase = createClient()
 
+  const [teacherId, setTeacherId] = useState("")
   const [courses, setCourses] = useState<Course[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,13 +33,30 @@ export default function TeacherAnnouncementsPage() {
   const [deadline, setDeadline] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
 
-  // TEMPORARY teacher id
-  const teacherId = "405b56ca-8e7a-41e7-96dd-417041305cdf"
+  useEffect(() => {
+    fetchCurrentTeacher()
+  }, [])
 
   useEffect(() => {
-    fetchCourses()
-    fetchAnnouncements()
-  }, [])
+    if (teacherId) {
+      fetchCourses()
+      fetchAnnouncements()
+    }
+  }, [teacherId])
+
+  const fetchCurrentTeacher = async () => {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+
+    if (error || !user) {
+      setLoading(false)
+      return
+    }
+
+    setTeacherId(user.id)
+  }
 
   const fetchCourses = async () => {
     const { data, error } = await supabase
@@ -52,6 +70,8 @@ export default function TeacherAnnouncementsPage() {
   }
 
   const fetchAnnouncements = async () => {
+    setLoading(true)
+
     const { data, error } = await supabase
       .from("announcements")
       .select(`
@@ -75,7 +95,7 @@ export default function TeacherAnnouncementsPage() {
   }
 
   const createAnnouncement = async () => {
-    if (!selectedCourse || !title || !content) return
+    if (!teacherId || !selectedCourse || !title || !content) return
 
     const { error } = await supabase.from("announcements").insert({
       title,
@@ -191,7 +211,8 @@ export default function TeacherAnnouncementsPage() {
 
             <button
               onClick={createAnnouncement}
-              className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-indigo-700"
+              disabled={!teacherId}
+              className="rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Publish Announcement
             </button>
