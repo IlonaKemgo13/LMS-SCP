@@ -53,7 +53,11 @@ export default function Home() {
     if (profile.role === "teacher") {
       router.push("/teacher");
     } else if (profile.role === "student") {
+<<<<<<< HEAD
       router.push("/student dashboard");
+=======
+      router.push("/student-dashboard");
+>>>>>>> 4-authentication
     } else if (profile.role === "admin") {
       router.push("/admin");
     } else if (profile.role === "parent") {
