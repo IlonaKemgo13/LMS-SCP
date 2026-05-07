@@ -10,7 +10,6 @@ const links = [
   { href: "/admin/parent-links", label: "Parent-To-Student" },
   { href: "/admin/enrollments", label: "Enrollments" },
   { href: "/admin/announcements", label: "Announcements" },
-  { href: "/admin/recordings", label: "Recordings" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/profile", label: "Profile" },
 ]
