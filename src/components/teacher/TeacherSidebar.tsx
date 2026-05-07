@@ -9,6 +9,7 @@ const links = [
   { href: "/teacher/announcements", label: "Announcements" },
   { href: "/teacher/grades", label: "Grades" },
   { href: "/teacher/recordings", label: "Audio Recordings" },
+  { href: "/teacher/profile", label: "My Profile" },
 ]
 
 export default function TeacherSidebar() {
