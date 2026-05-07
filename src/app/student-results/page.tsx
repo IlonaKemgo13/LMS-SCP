@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type FinalResult = {
@@ -15,12 +16,19 @@ type FinalResult = {
 
 export default function StudentResultsPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [results, setResults] = useState<FinalResult[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchFinalResults() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        router.push('/');
+        return;
+      }
+
       const { data, error } = await supabase
         .from("final_results")
         .select("id, title, domain, semester, file_url, created_at")
@@ -70,6 +78,16 @@ export default function StudentResultsPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-6 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">

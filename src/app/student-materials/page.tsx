@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Material = {
@@ -11,13 +12,14 @@ type Material = {
   course_id: string;
   created_at: string | null;
   courses?: {
-    name: string;
-    domain: string | null;
+    title: string;
+    description: string | null;
   } | null;
 };
 
 export default function StudentMaterialsPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ export default function StudentMaterialsPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
@@ -48,11 +50,11 @@ export default function StudentMaterialsPage() {
 
       const { data } = await supabase
         .from("materials")
-        .select("id, title, file_url, course_id, created_at, courses(name, domain)")
+        .select("id, title, file_url, course_id, created_at, courses(title, description)")
         .in("course_id", courseIds)
         .order("created_at", { ascending: false });
 
-      setMaterials((data as Material[]) || []);
+      setMaterials((data as unknown as Material[]) || []);
       setLoading(false);
     }
 
@@ -92,6 +94,16 @@ export default function StudentMaterialsPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-6 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -173,13 +185,13 @@ export default function StudentMaterialsPage() {
                     >
                       <div className="mb-4">
                         <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                          {material.courses?.name || "Unknown Course"}
+                          {material.courses?.title || "Unknown Course"}
                         </p>
                         <h4 className="mt-2 text-xl font-bold">
                           {material.title}
                         </h4>
                         <p className="mt-1 text-sm text-slate-500">
-                          {material.courses?.domain || "No domain"} •{" "}
+                          {material.courses?.description || "No description"} •{" "}
                           {material.created_at
                             ? new Date(material.created_at).toLocaleDateString()
                             : "No date"}

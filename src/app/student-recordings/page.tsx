@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Recording = {
@@ -11,13 +12,14 @@ type Recording = {
   course_id: string;
   created_at: string | null;
   courses?: {
-    name: string;
-    domain: string | null;
+    title: string;
+    description: string | null;
   } | null;
 };
 
 export default function StudentRecordingsPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ export default function StudentRecordingsPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
@@ -48,11 +50,11 @@ export default function StudentRecordingsPage() {
 
       const { data } = await supabase
         .from("recordings")
-        .select("id, title, file_url, course_id, created_at, courses(name, domain)")
+        .select("id, title, file_url, course_id, created_at, courses(title, description)")
         .in("course_id", courseIds)
         .order("created_at", { ascending: false });
 
-      setRecordings((data as Recording[]) || []);
+      setRecordings((data as unknown as Recording[]) || []);
       setLoading(false);
     }
 
@@ -92,6 +94,16 @@ export default function StudentRecordingsPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-6 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -174,13 +186,13 @@ export default function StudentRecordingsPage() {
                     >
                       <div className="mb-4">
                         <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                          {recording.courses?.name || "Unknown Course"}
+                          {recording.courses?.title || "Unknown Course"}
                         </p>
                         <h4 className="mt-2 text-xl font-bold">
                           {recording.title}
                         </h4>
                         <p className="mt-1 text-sm text-slate-500">
-                          {recording.courses?.domain || "No domain"} •{" "}
+                          {recording.courses?.description || "No description"} •{" "}
                           {recording.created_at
                             ? new Date(recording.created_at).toLocaleDateString()
                             : "No date"}

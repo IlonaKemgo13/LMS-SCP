@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Announcement = {
@@ -9,17 +10,17 @@ type Announcement = {
   title: string;
   content: string | null;
   deadline: string | null;
-  is_global: boolean | null;
 };
 
 type Course = {
   id: string;
-  name: string;
-  domain: string | null;
+  title: string;
+  description: string | null;
 };
 
 export default function StudentAnnouncementsPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -31,13 +32,13 @@ export default function StudentAnnouncementsPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
       const { data: enrollmentData } = await supabase
         .from("enrollments")
-        .select("courses(id, name, domain)")
+        .select("courses(id, title, description)")
         .eq("student_id", userId);
 
       const enrolledCourses =
@@ -47,16 +48,15 @@ export default function StudentAnnouncementsPage() {
 
       const courseIds = enrolledCourses.map((course: Course) => course.id);
 
-      const { data: announcementData } = await supabase
-        .from("announcements")
-        .select("id, title, content, deadline, is_global, course_id")
-        .or(
-          courseIds.length > 0
-            ? `is_global.eq.true,course_id.in.(${courseIds.join(",")})`
-            : "is_global.eq.true"
-        )
-        .order("deadline", { ascending: true });
-
+      let announcementData = null;
+      if (courseIds.length > 0) {
+        const { data } = await supabase
+          .from("announcements")
+          .select("id, title, content, deadline, course_id")
+          .in("course_id", courseIds)
+          .order("deadline", { ascending: true });
+        announcementData = data;
+      }
       setAnnouncements(announcementData || []);
       setLoading(false);
     }
@@ -108,6 +108,16 @@ export default function StudentAnnouncementsPage() {
               View course updates, deadlines, and school notices.
             </p>
           </div>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-4 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -218,9 +228,7 @@ export default function StudentAnnouncementsPage() {
 
                               <div className="mt-4 flex flex-wrap gap-3">
                                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                  {item.is_global
-                                    ? "Global announcement"
-                                    : "Course-specific"}
+                                  Course announcement
                                 </span>
 
                                 <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">

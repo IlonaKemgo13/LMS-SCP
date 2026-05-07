@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Course = {
   id: string;
-  name: string;
-  domain: string | null;
+  title: string;
+  description: string | null;
 };
 
 type Announcement = {
@@ -15,22 +16,22 @@ type Announcement = {
   title: string;
   content: string | null;
   deadline: string | null;
-  is_global: boolean | null;
 };
 
 type Grade = {
   id: string;
-  type: string;
+  assessment_type: string;
   score: number;
   max_score: number;
   course_id: string;
   courses?: {
-    name: string;
+    title: string;
   } | null;
 };
 
 export default function DashboardPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -44,13 +45,13 @@ export default function DashboardPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
       const { data: enrollmentData } = await supabase
         .from("enrollments")
-        .select("courses(id, name, domain)")
+        .select("courses(id, title, description)")
         .eq("student_id", userId);
 
       const enrolledCourses =
@@ -60,24 +61,23 @@ export default function DashboardPage() {
 
       const courseIds = enrolledCourses.map((course: Course) => course.id);
 
-      const { data: announcementData } = await supabase
-        .from("announcements")
-        .select("id, title, content, deadline, is_global, course_id")
-        .or(
-          courseIds.length > 0
-            ? `is_global.eq.true,course_id.in.(${courseIds.join(",")})`
-            : "is_global.eq.true"
-        )
-        .order("deadline", { ascending: true });
-
+      let announcementData = null;
+      if (courseIds.length > 0) {
+        const { data } = await supabase
+          .from("announcements")
+          .select("id, title, content, deadline, course_id")
+          .in("course_id", courseIds)
+          .order("deadline", { ascending: true });
+        announcementData = data;
+      }
       setAnnouncements(announcementData || []);
 
       const { data: gradesData } = await supabase
         .from("grades")
-        .select("id, type, score, max_score, course_id, courses(name)")
+        .select("id, assessment_type, score, max_score, course_id, courses(title)")
         .eq("student_id", userId);
 
-      setGrades((gradesData as Grade[]) || []);
+      setGrades((gradesData as unknown as Grade[]) || []);
 
       const { data: recordingsData } = await supabase
         .from("recordings")
@@ -149,6 +149,16 @@ export default function DashboardPage() {
               Track your courses, grades, announcements, and recordings.
             </p>
           </div>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-4 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -220,7 +230,7 @@ export default function DashboardPage() {
                             </p>
                           </div>
                           <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
-                            {item.is_global ? "Global" : "Course"}
+                            Course
                           </span>
                         </div>
                       </div>
@@ -267,9 +277,9 @@ export default function DashboardPage() {
                     courses.map((course) => (
                       <div key={course.id} className="flex items-center justify-between rounded-xl border p-4">
                         <div>
-                          <p className="font-semibold">{course.name}</p>
+                          <p className="font-semibold">{course.title}</p>
                           <p className="text-sm text-slate-500">
-                            {course.domain || "No domain"}
+                            {course.description || "No description"}
                           </p>
                         </div>
                         <Link
@@ -304,10 +314,10 @@ View
                         <div key={grade.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
                           <div>
                             <p className="font-semibold">
-                              {grade.courses?.name || "Unknown Course"}
+                              {grade.courses?.title || "Unknown Course"}
                             </p>
                             <p className="text-sm text-slate-500">
-                              {grade.type}: {grade.score}/{grade.max_score}
+                              {grade.assessment_type}: {grade.score}/{grade.max_score}
                             </p>
                           </div>
                           <p className="text-xl font-bold text-blue-600">

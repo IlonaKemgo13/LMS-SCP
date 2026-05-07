@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Course = {
   id: string;
-  name: string;
-  domain: string | null;
-  course_code?: string | null;
+  title: string;
+  description: string | null;
+  code?: string | null;
 };
 
 type Grade = {
@@ -30,6 +31,7 @@ type Announcement = {
 
 export default function StudentCoursesPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -44,13 +46,13 @@ export default function StudentCoursesPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
       const { data: enrollmentData } = await supabase
         .from("enrollments")
-        .select("courses(id, name, domain, course_code)")
+        .select("courses(id, title, description, code)")
         .eq("student_id", userId);
 
       const enrolledCourses =
@@ -78,7 +80,7 @@ export default function StudentCoursesPage() {
         const { data: announcementData } = await supabase
           .from("announcements")
           .select("id, course_id")
-          .or(`is_global.eq.true,course_id.in.(${courseIds.join(",")})`);
+          .in("course_id", courseIds);
 
         setAnnouncements((announcementData as Announcement[]) || []);
       }
@@ -91,7 +93,7 @@ export default function StudentCoursesPage() {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) =>
-      `${course.name} ${course.domain || ""} ${course.course_code || ""}`
+      `${course.title} ${course.description || ""} ${course.code || ""}`
         .toLowerCase()
         .includes(search.toLowerCase())
     );
@@ -119,10 +121,7 @@ export default function StudentCoursesPage() {
   }
 
   function getCourseAnnouncementCount(courseId: string) {
-    return announcements.filter(
-      (announcement) =>
-        announcement.course_id === courseId || announcement.course_id === null
-    ).length;
+    return announcements.filter((a) => a.course_id === courseId).length;
   }
 
   return (
@@ -165,6 +164,16 @@ export default function StudentCoursesPage() {
               Access courses, grades, recordings, and updates.
             </p>
           </div>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-4 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -272,13 +281,13 @@ export default function StudentCoursesPage() {
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                              {course.course_code || "Course"}
+                              {course.code || "Course"}
                             </p>
                             <h4 className="mt-2 text-xl font-bold">
-                              {course.name}
+                              {course.title}
                             </h4>
                             <p className="mt-1 text-sm text-slate-500">
-                              {course.domain || "No domain specified"}
+                              {course.description || "No description"}
                             </p>
                           </div>
 

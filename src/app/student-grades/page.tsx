@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Grade = {
   id: string;
-  type: string;
+  assessment_type: string;
   score: number;
   max_score: number;
   course_id: string;
   courses?: {
-    name: string;
-    domain: string | null;
-    course_code?: string | null;
+    title: string;
+    description: string | null;
+    code?: string | null;
   } | null;
 };
 
 export default function StudentGradesPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,16 +31,16 @@ export default function StudentGradesPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        setLoading(false);
+        router.push('/');
         return;
       }
 
       const { data } = await supabase
         .from("grades")
-        .select("id, type, score, max_score, course_id, courses(name, domain, course_code)")
+        .select("id, assessment_type, score, max_score, course_id, courses(title, description, code)")
         .eq("student_id", userId);
 
-      setGrades((data as Grade[]) || []);
+      setGrades((data as unknown as Grade[]) || []);
       setLoading(false);
     }
 
@@ -97,6 +99,16 @@ export default function StudentGradesPage() {
               </Link>
             ))}
           </nav>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="mx-4 mt-6 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+          >
+            Sign Out
+          </button>
         </aside>
 
         <section className="flex-1">
@@ -185,17 +197,17 @@ export default function StudentGradesPage() {
                       >
                         <div className="md:col-span-2">
                           <p className="font-bold">
-                            {grade.courses?.name || "Unknown Course"}
+                            {grade.courses?.title || "Unknown Course"}
                           </p>
                           <p className="text-sm text-slate-500">
-                            {grade.courses?.domain || "No domain"}
+                            {grade.courses?.description || "No description"}
                           </p>
                         </div>
 
                         <div>
                           <p className="text-sm text-slate-500">Type</p>
                           <p className="font-semibold capitalize">
-                            {grade.type}
+                            {grade.assessment_type}
                           </p>
                         </div>
 
