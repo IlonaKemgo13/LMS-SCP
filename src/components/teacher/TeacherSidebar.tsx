@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import LogoutModal from "@/components/LogoutModal"
 
 const links = [
   { href: "/teacher", label: "Dashboard" },
@@ -23,7 +24,8 @@ export default function TeacherSidebar() {
       </div>
 
       <nav className="space-y-2 p-4">
-        {links.map((link) => {
+        <div className="space-y-2">
+           {links.map((link) => {
           const isActive =
             pathname === link.href ||
             (link.href !== "/teacher" && pathname.startsWith(link.href))
@@ -42,6 +44,12 @@ export default function TeacherSidebar() {
             </Link>
           )
         })}
+        </div>
+
+        <div className="mt-auto pt-4">
+          <LogoutModal />
+        </div>
+       
       </nav>
     </aside>
   )
