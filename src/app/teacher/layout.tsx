@@ -10,9 +10,12 @@ export default function TeacherLayout({
     <div className="min-h-screen bg-gray-100">
       <TeacherSidebar />
 
-      <div className="ml-64">
+      <div className="ml-64 flex min-h-screen flex-col">
         <TeacherTopbar />
-        <main className="p-6">{children}</main>
+
+        <main className="flex-1 p-6 pt-22">
+          {children}
+        </main>
       </div>
     </div>
   )
