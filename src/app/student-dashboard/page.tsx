@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type Profile = {
+  full_name: string | null;
+};
+
 type Course = {
   id: string;
   title: string;
@@ -33,6 +37,7 @@ export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
 
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -48,6 +53,13 @@ export default function DashboardPage() {
         router.push('/');
         return;
       }
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .single();
+      setProfile(profileData ?? null);
 
       const { data: enrollmentData } = await supabase
         .from("enrollments")
@@ -144,7 +156,7 @@ export default function DashboardPage() {
           </nav>
 
           <div className="mx-4 mt-20 rounded-2xl bg-slate-900 p-4">
-            <p className="text-sm font-semibold">Welcome back 👋</p>
+            <p className="text-sm font-semibold">Welcome back </p>
             <p className="mt-1 text-xs text-slate-400">
               Track your courses, grades, announcements, and recordings.
             </p>
@@ -169,7 +181,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-full bg-blue-100 px-5 py-2 font-semibold text-blue-700">
-              Student
+              {loading ? "Loading..." : (profile?.full_name ?? "Student")}
             </div>
           </header>
 
@@ -283,12 +295,11 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <Link
-href="/student-courses"
-className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
->
-View
-</Link>
-
+                          href="/student-courses"
+                          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          View
+                        </Link>
                       </div>
                     ))
                   )}
