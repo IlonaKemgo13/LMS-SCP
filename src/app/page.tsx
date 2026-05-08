@@ -50,21 +50,21 @@ export default function Home() {
       return;
     }
 
-   if (profile.role === "teacher") {
-  router.push("/teacher")
-} else if (profile.role === "student") {
-  router.push("/student-dashboard")
-} else if (profile.role === "admin") {
-  router.push("/admin")
-} else if (profile.role === "parent") {
-  router.push("/dashboard/parent")
-} else {
-  router.push("/")
-}
+    if (profile.role === "teacher") {
+      router.push("/teacher");
+    } else if (profile.role === "student") {
+      router.push("/student-dashboard");
+    } else if (profile.role === "admin") {
+      router.push("/admin");
+    } else if (profile.role === "parent") {
+      router.push("/dashboard/parent");
+    } else {
+      router.push("/");
+    }
   }
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-800 text-white">
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-800 text-white">
       <section className="mx-auto flex min-h-screen max-w-7xl items-center px-6 py-12">
         <div className="grid w-full gap-10 lg:grid-cols-2 lg:items-center">
           <div className="space-y-6">
