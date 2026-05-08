@@ -246,7 +246,7 @@ export default function TeacherRecordingsPage() {
   }
 
   return (
-    <section className="space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <section className="w-full space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       {/* Hero Banner */}
       <div className="rounded-2xl bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 p-6 text-white shadow-xl sm:rounded-3xl sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-white/70 sm:text-sm">

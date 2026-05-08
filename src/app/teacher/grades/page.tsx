@@ -254,7 +254,7 @@ export default function TeacherGradesPage() {
 
   return (
     <>
-      <section className="space-y-8">
+      <section className="w-full space-y-8">
         <div
           className="rounded-3xl bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 p-8 text-white shadow-xl"
          
