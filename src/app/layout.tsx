@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -27,7 +28,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+<<<<<<< HEAD
       <body className="min-h-full flex flex-col ml-64 flex-1">{children}</body>
+=======
+      <body className="min-h-full ">{children}</body>
+>>>>>>> 2541d39ccf6742d9967e58f31f3024264ea6ebe9
     </html>
   );
 }
+

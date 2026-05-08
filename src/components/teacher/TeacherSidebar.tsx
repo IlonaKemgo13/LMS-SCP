@@ -17,7 +17,7 @@ export default function TeacherSidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-slate-900 text-white">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white">
       <div className="border-b border-slate-700 p-6">
         <h1 className="text-xl font-bold">SCP-LMS</h1>
         <p className="text-sm text-slate-300">Teacher Panel</p>
