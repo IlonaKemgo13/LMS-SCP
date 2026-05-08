@@ -7,13 +7,13 @@ export default function TeacherLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen w-full overflow-x-hidden bg-gray-100">
+    <div className="min-h-screen bg-gray-100">
       <TeacherSidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="ml-64 flex min-h-screen flex-col">
         <TeacherTopbar />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-6 pt-22">
+        <main className="flex-1 p-6 pt-22">
           {children}
         </main>
       </div>
