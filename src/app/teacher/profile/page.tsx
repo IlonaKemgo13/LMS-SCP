@@ -191,7 +191,7 @@ export default function TeacherProfilePage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="w-full min-h-screen bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       {/* Hero Banner */}
       <div className="mb-5 overflow-hidden rounded-2xl bg-linear-to-r from-indigo-600 via-purple-600 to-fuchsia-600 p-6 text-white shadow-xl sm:rounded-3xl sm:p-8 sm:px-10">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-purple-200/80 sm:text-[11px]">

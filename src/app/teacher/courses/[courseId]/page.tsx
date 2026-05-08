@@ -153,7 +153,7 @@ export default function TeacherCourseDetailsPage() {
   }
 
   return (
-    <section className="space-y-8">
+    <section className="w-full space-y-8">
       {/* HERO */}
       <div
         className="rounded-3xl p-8 text-white shadow-xl"
