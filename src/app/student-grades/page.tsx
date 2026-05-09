@@ -21,7 +21,6 @@ type Grade = {
 export default function StudentGradesPage() {
   const supabase = createClient();
   const router = useRouter();
-
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
 
