@@ -47,7 +47,7 @@ export default function TeacherTopbar() {
     .toUpperCase()
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
+    <header className="fixed left-64 right-0 top-0 z-50 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
       <div>
         <h2 className="text-lg font-semibold">Teacher Dashboard</h2>
 

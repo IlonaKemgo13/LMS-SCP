@@ -98,9 +98,12 @@ export default function AdminAnnouncementsPage() {
 
       {/* ── Hero banner ── */}
       <div style={{
-        borderRadius: 20,
+           borderRadius: 20,
         background: "linear-gradient(135deg, #1a1145 0%, #2d1b6e 50%, #3b2391 100%)",
-        padding: "36px 40px", marginBottom: 24, position: "relative", overflow: "hidden",
+        padding: "36px 40px",
+        marginBottom: 24,
+        position: "relative",
+        overflow: "hidden",
         boxShadow: "0 8px 32px rgba(55,20,180,0.25)",
       }}>
         <div style={{ position: "absolute", right: 60, top: -20, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.35) 0%, transparent 70%)", filter: "blur(30px)", pointerEvents: "none" }} />
