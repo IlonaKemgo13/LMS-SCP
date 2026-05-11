@@ -17,7 +17,7 @@ export default function StudentSettingsPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -88,8 +88,39 @@ export default function StudentSettingsPage() {
     }
   }
 
+  const initials = profile?.full_name
+    ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : "ST";
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
+
+      {/* Sign Out Modal */}
+      {showSignOutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl mx-4">
+            <h2 className="text-xl font-bold text-slate-900">Sign Out</h2>
+            <p className="mt-2 text-sm text-slate-500">Are you sure you want to sign out?</p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowSignOutModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                No, Stay
+              </button>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  router.push('/');
+                }}
+                className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Password Modal */}
       {showPasswordModal && (
@@ -110,16 +141,10 @@ export default function StudentSettingsPage() {
                 ✕
               </button>
             </div>
-
-            <p className="text-sm text-slate-500 mb-6">
-              Update your account password below.
-            </p>
-
+            <p className="text-sm text-slate-500 mb-6">Update your account password below.</p>
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  New Password
-                </label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">New Password</label>
                 <input
                   type="password"
                   placeholder="Enter new password"
@@ -129,9 +154,7 @@ export default function StudentSettingsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Confirm New Password
-                </label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Confirm New Password</label>
                 <input
                   type="password"
                   placeholder="Confirm new password"
@@ -140,14 +163,8 @@ export default function StudentSettingsPage() {
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
                 />
               </div>
-
-              {passwordError && (
-                <p className="text-sm text-red-600">{passwordError}</p>
-              )}
-              {passwordMessage && (
-                <p className="text-sm text-green-600">{passwordMessage}</p>
-              )}
-
+              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+              {passwordMessage && <p className="text-sm text-green-600">{passwordMessage}</p>}
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
@@ -175,13 +192,13 @@ export default function StudentSettingsPage() {
       )}
 
       <div className="flex min-h-screen">
-        <aside className="w-64 bg-slate-950 text-white">
+        <aside className="w-64 bg-slate-950 text-white flex flex-col">
           <div className="p-6">
             <h1 className="text-2xl font-bold">SCP Portal</h1>
             <p className="text-sm text-slate-400">Student Workspace</p>
           </div>
 
-          <nav className="mt-6 space-y-2 px-4">
+          <nav className="mt-6 space-y-2 px-4 flex-1">
             {[
               { name: "Dashboard", href: "/student-dashboard" },
               { name: "Announcements", href: "/student-announcements" },
@@ -206,15 +223,19 @@ export default function StudentSettingsPage() {
             ))}
           </nav>
 
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.push('/');
-            }}
-            className="mx-4 mt-6 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
-          >
-            Sign Out
-          </button>
+          <div className="p-4">
+            <button
+              onClick={() => setShowSignOutModal(true)}
+              className="flex items-center gap-2 w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sign Out
+            </button>
+          </div>
         </aside>
 
         <section className="flex-1">
@@ -223,8 +244,21 @@ export default function StudentSettingsPage() {
               <p className="text-sm text-slate-500">Student Workspace</p>
               <h2 className="text-2xl font-bold">Settings</h2>
             </div>
-            <div className="rounded-full bg-blue-100 px-5 py-2 font-semibold text-blue-700">
-              {loading ? "Loading..." : (profile?.full_name ?? "Student")}
+            <div className="flex items-center gap-3">
+              <button className="relative rounded-full p-2 hover:bg-slate-100">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">
+                  {loading ? "..." : (profile?.full_name ?? "Student")}
+                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                  {initials}
+                </div>
+              </div>
             </div>
           </header>
 
@@ -239,48 +273,36 @@ export default function StudentSettingsPage() {
               </p>
             </section>
 
-            {/* Profile Information */}
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold">Profile Information</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Your account details from the school portal.
-              </p>
+              <p className="mt-1 text-sm text-slate-500">Your account details from the school portal.</p>
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
                   <div>
                     <p className="text-sm text-slate-500">Full Name</p>
-                    <p className="mt-0.5 font-semibold">
-                      {loading ? "Loading..." : (profile?.full_name ?? "Not set")}
-                    </p>
+                    <p className="mt-0.5 font-semibold">{loading ? "Loading..." : (profile?.full_name ?? "Not set")}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
                   <div>
                     <p className="text-sm text-slate-500">Email Address</p>
-                    <p className="mt-0.5 font-semibold">
-                      {loading ? "Loading..." : (email ?? "Not available")}
-                    </p>
+                    <p className="mt-0.5 font-semibold">{loading ? "Loading..." : (email ?? "Not available")}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
                   <div>
                     <p className="text-sm text-slate-500">Role</p>
-                    <p className="mt-0.5 font-semibold capitalize">
-                      {loading ? "Loading..." : (profile?.role ?? "Student")}
-                    </p>
+                    <p className="mt-0.5 font-semibold capitalize">{loading ? "Loading..." : (profile?.role ?? "Student")}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Manage Password — triggers modal */}
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold">Manage Password</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Change your account password anytime.
-                  </p>
+                  <p className="mt-1 text-sm text-slate-500">Change your account password anytime.</p>
                 </div>
                 <button
                   onClick={() => setShowPasswordModal(true)}
@@ -291,17 +313,11 @@ export default function StudentSettingsPage() {
               </div>
             </div>
 
-            {/* Sign Out */}
             <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-red-600">Sign Out</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Sign out of your student portal session.
-              </p>
+              <p className="mt-1 text-sm text-slate-500">Sign out of your student portal session.</p>
               <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.push('/');
-                }}
+                onClick={() => setShowSignOutModal(true)}
                 className="mt-4 rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700"
               >
                 Sign Out
