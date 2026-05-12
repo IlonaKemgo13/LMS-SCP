@@ -131,6 +131,7 @@ export default function ParentAnnouncementsPage() {
             <select
               value={filterCourse}
               onChange={(e) => setFilterCourse(e.target.value)}
+                title="Filter announcements by course"
               className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Courses</option>
