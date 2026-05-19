@@ -10,6 +10,11 @@ import {
   X,
   Users,
   ChevronDown,
+  Save,
+  AlertTriangle,
+  Mail,
+  CalendarDays,
+  Shield,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -21,8 +26,6 @@ type User = {
   created_at: string
 }
 
-/* ───────────────────────────────────────────── */
-
 const ROLE_META: Record<
   string,
   {
@@ -31,7 +34,6 @@ const ROLE_META: Record<
     barTo: string
     badgeBg: string
     badgeText: string
-    badgeRing: string
     dotColor: string
   }
 > = {
@@ -41,7 +43,6 @@ const ROLE_META: Record<
     barTo: "#fb7185",
     badgeBg: "#fff1f2",
     badgeText: "#be123c",
-    badgeRing: "#fecdd3",
     dotColor: "#f43f5e",
   },
   teacher: {
@@ -50,7 +51,6 @@ const ROLE_META: Record<
     barTo: "#a78bfa",
     badgeBg: "#f5f3ff",
     badgeText: "#6d28d9",
-    badgeRing: "#ddd6fe",
     dotColor: "#7c3aed",
   },
   student: {
@@ -59,7 +59,6 @@ const ROLE_META: Record<
     barTo: "#22d3ee",
     badgeBg: "#f0fdfa",
     badgeText: "#0f766e",
-    badgeRing: "#99f6e4",
     dotColor: "#0891b2",
   },
   parent: {
@@ -68,50 +67,42 @@ const ROLE_META: Record<
     barTo: "#fcd34d",
     badgeBg: "#fffbeb",
     badgeText: "#b45309",
-    badgeRing: "#fde68a",
     dotColor: "#f59e0b",
   },
 }
-
-const AVATAR_COLORS = [
-  { from: "#7c3aed", to: "#4f46e5" },
-  { from: "#0891b2", to: "#0d9488" },
-  { from: "#f43f5e", to: "#db2777" },
-  { from: "#f59e0b", to: "#ea580c" },
-  { from: "#3b82f6", to: "#6366f1" },
-  { from: "#10b981", to: "#0891b2" },
-]
-
-function getAvatar(name: string) {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
-}
-
-/* ───────────────────────────────────────────── */
 
 export default function AdminUsersPage() {
   const supabase = createClient()
 
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+
+  /* add user */
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedRole, setSelectedRole] = useState("all")
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("student")
+
+  /* filters */
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedRole, setSelectedRole] = useState("all")
+
+  /* view */
+  const [viewUser, setViewUser] = useState<User | null>(null)
+
+  /* edit */
+  const [editUser, setEditUser] = useState<User | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editRole, setEditRole] = useState("student")
+  const [updating, setUpdating] = useState(false)
+
+  /* disable */
+  const [disableUser, setDisableUser] = useState<User | null>(null)
+  const [disabling, setDisabling] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -127,14 +118,6 @@ export default function AdminUsersPage() {
 
     setUsers(data || [])
     setLoading(false)
-  }
-
-  function closeModal() {
-    setFullName("")
-    setEmail("")
-    setPassword("")
-    setRole("student")
-    setShowModal(false)
   }
 
   async function saveUser() {
@@ -168,23 +151,83 @@ export default function AdminUsersPage() {
 
     await fetchUsers()
 
+    setFullName("")
+    setEmail("")
+    setPassword("")
+    setRole("student")
+
     setSaving(false)
-    closeModal()
+    setShowModal(false)
   }
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter((u) => {
-        const s = searchTerm.toLowerCase()
+  function openEditModal(user: User) {
+    setEditUser(user)
+    setEditName(user.full_name)
+    setEditEmail(user.email)
+    setEditRole(user.role)
+  }
 
-        return (
-          (u.full_name.toLowerCase().includes(s) ||
-            u.email.toLowerCase().includes(s)) &&
-          (selectedRole === "all" || u.role === selectedRole)
-        )
-      }),
-    [users, searchTerm, selectedRole]
-  )
+  async function updateUser() {
+    if (!editUser) return
+
+    setUpdating(true)
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: editName,
+        email: editEmail,
+        role: editRole,
+      })
+      .eq("id", editUser.id)
+
+    if (error) {
+      alert(error.message)
+      setUpdating(false)
+      return
+    }
+
+    await fetchUsers()
+
+    setUpdating(false)
+    setEditUser(null)
+  }
+
+  async function disableAccount() {
+    if (!disableUser) return
+
+    setDisabling(true)
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        role: "disabled",
+      })
+      .eq("id", disableUser.id)
+
+    if (error) {
+      alert(error.message)
+      setDisabling(false)
+      return
+    }
+
+    await fetchUsers()
+
+    setDisabling(false)
+    setDisableUser(null)
+  }
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const s = searchTerm.toLowerCase()
+
+      return (
+        (u.full_name.toLowerCase().includes(s) ||
+          u.email.toLowerCase().includes(s)) &&
+        (selectedRole === "all" || u.role === selectedRole)
+      )
+    })
+  }, [users, searchTerm, selectedRole])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {
@@ -202,240 +245,87 @@ export default function AdminUsersPage() {
   }, [users])
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f1f2f6",
-        padding: "28px 32px",
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
+    <section className="space-y-6 px-4 pb-6 pt-20 sm:px-6 lg:px-8 lg:pt-6">
       {/* HERO */}
-
-      <div
-        style={{
-          borderRadius: 20,
-          background:
-            "linear-gradient(135deg, #1a1145 0%, #2d1b6e 50%, #3b2391 100%)",
-          padding: "36px 40px",
-          marginBottom: 24,
-          position: "relative",
-          overflow: "hidden",
-          boxShadow: "0 8px 32px rgba(55,20,180,0.25)",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "rgba(196,181,253,0.8)",
-            marginBottom: 8,
-          }}
-        >
+      <div className="rounded-3xl bg-linear-to-r from-slate-900 via-indigo-900 to-purple-900 p-6 text-white shadow-xl sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
           Admin Workspace
         </p>
 
-        <h1
-          style={{
-            fontSize: 32,
-            fontWeight: 800,
-            color: "#fff",
-            margin: 0,
-          }}
-        >
+        <h1 className="mt-3 text-3xl font-bold">
           User Management
         </h1>
 
-        <p
-          style={{
-            fontSize: 14,
-            color: "rgba(196,181,253,0.7)",
-            marginTop: 8,
-            marginBottom: 0,
-          }}
-        >
-          Manage admins, teachers, students, and parents registered in the LMS
-          platform.
+        <p className="mt-3 max-w-2xl text-sm text-white/80">
+          Manage admins, teachers, students, and parents registered in the LMS platform.
         </p>
       </div>
 
       {/* STATS */}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(["admin", "teacher", "student", "parent"] as const).map((key) => {
           const m = ROLE_META[key]
-          const active = selectedRole === key
 
           return (
-            <button
+            <div
               key={key}
-              type="button"
-              onClick={() =>
-                setSelectedRole(active ? "all" : key)
-              }
-              style={{
-                background: "#fff",
-                borderRadius: 16,
-                padding: "20px",
-                border: active
-                  ? "2px solid #7c3aed"
-                  : "2px solid transparent",
-                cursor: "pointer",
-                textAlign: "left",
-              }}
+              className="rounded-2xl bg-white p-5 shadow-sm"
             >
               <div
+                className="mb-4 h-1.5 rounded-full"
                 style={{
-                  height: 5,
-                  borderRadius: 999,
                   background: `linear-gradient(90deg, ${m.barFrom}, ${m.barTo})`,
-                  marginBottom: 14,
                 }}
               />
 
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                  marginBottom: 8,
-                }}
-              >
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
                 {m.label}s
               </p>
 
-              <p
-                style={{
-                  fontSize: 38,
-                  fontWeight: 900,
-                  color: "#0f172a",
-                  margin: 0,
-                }}
-              >
+              <h2 className="mt-2 text-4xl font-black text-slate-900">
                 {counts[key]}
-              </p>
-            </button>
+              </h2>
+            </div>
           )
         })}
       </div>
 
-      {/* TABLE CARD */}
-
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 20,
-          overflow: "hidden",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-        }}
-      >
+      {/* TABLE */}
+      <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
         {/* TOOLBAR */}
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "20px 24px",
-            borderBottom: "1px solid #f1f5f9",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#0f172a",
-                margin: 0,
-              }}
-            >
+            <h2 className="text-xl font-bold text-slate-900">
               Platform Users
             </h2>
 
-            <p
-              style={{
-                fontSize: 13,
-                color: "#94a3b8",
-                marginTop: 4,
-              }}
-            >
+            <p className="mt-1 text-sm text-slate-400">
               {loading
                 ? "Loading..."
                 : `${filteredUsers.length} user(s) found`}
             </p>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             {/* SEARCH */}
-
-            <div style={{ position: "relative" }}>
-              <Search
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 15,
-                  height: 15,
-                  color: "#94a3b8",
-                }}
-              />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="text"
-                placeholder="Search name or email..."
+                placeholder="Search users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  height: 40,
-                  width: 220,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#f8fafc",
-                  paddingLeft: 36,
-                  paddingRight: 12,
-                  fontSize: 13,
-                  outline: "none",
-                }}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none focus:border-violet-500 sm:w-64"
               />
             </div>
 
-            {/* ROLE FILTER */}
-
-            <div style={{ position: "relative" }}>
+            {/* FILTER */}
+            <div className="relative">
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#f8fafc",
-                  padding: "0 32px 0 12px",
-                  fontSize: 13,
-                  appearance: "none",
-                  outline: "none",
-                }}
+                className="h-11 appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm outline-none focus:border-violet-500"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
@@ -444,408 +334,141 @@ export default function AdminUsersPage() {
                 <option value="parent">Parent</option>
               </select>
 
-              <ChevronDown
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 14,
-                  height: 14,
-                  color: "#94a3b8",
-                }}
-              />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
 
-            {/* ADD BUTTON */}
-
+            {/* ADD USER */}
             <button
-              type="button"
               onClick={() => setShowModal(true)}
-              style={{
-                height: 40,
-                borderRadius: 12,
-                border: "none",
-                background:
-                  "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 13,
-                padding: "0 18px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-semibold text-white transition hover:bg-violet-800"
             >
-              <Plus style={{ width: 15, height: 15 }} />
+              <Plus className="h-4 w-4" />
               Add User
             </button>
           </div>
         </div>
 
-        {/* TABLE */}
-
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  background: "#f8fafc",
-                  borderBottom: "1px solid #f1f5f9",
-                }}
-              >
-                {["USER", "EMAIL", "ROLE", "JOINED", "ACTIONS"].map(
-                  (h, i) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "12px 20px",
-                        textAlign: i === 4 ? "right" : "left",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: "0.1em",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+        {/* TABLE CONTENT */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse">
+            <thead className="bg-slate-50">
+              <tr>
+                {["USER", "EMAIL", "ROLE", "JOINED", "ACTIONS"].map((h) => (
+                  <th
+                    key={h}
+                    className="px-5 py-4 text-left text-xs font-bold tracking-widest text-slate-400"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
 
             <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      padding: "60px 20px",
-                      textAlign: "center",
-                    }}
-                  >
-                    Loading users...
+              {filteredUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className="border-t border-slate-100"
+                >
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-violet-600 to-indigo-600 text-sm font-bold text-white">
+                        {user.full_name
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {user.full_name}
+                        </p>
+
+                        <p className="text-xs text-slate-400">
+                          LMS User
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-5 py-4 text-sm text-slate-600">
+                    {user.email}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <RoleBadge role={user.role} />
+                  </td>
+
+                  <td className="px-5 py-4 text-sm text-slate-400">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <div className="flex gap-2">
+                      <ActionBtn
+                        icon={<Eye />}
+                        onClick={() => setViewUser(user)}
+                      />
+
+                      <ActionBtn
+                        icon={<Pencil />}
+                        onClick={() => openEditModal(user)}
+                      />
+
+                      <ActionBtn
+                        icon={<ShieldOff />}
+                        danger
+                        onClick={() => setDisableUser(user)}
+                      />
+                    </div>
                   </td>
                 </tr>
-              ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => {
-                  const av = getAvatar(user.full_name)
-
-                  return (
-                    <tr
-                      key={user.id}
-                      style={{
-                        borderBottom: "1px solid #f8fafc",
-                      }}
-                    >
-                      {/* USER */}
-
-                      <td style={{ padding: "14px 20px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              background: `linear-gradient(135deg, ${av.from}, ${av.to})`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#fff",
-                              fontWeight: 800,
-                              fontSize: 12,
-                            }}
-                          >
-                            {getInitials(user.full_name)}
-                          </div>
-
-                          <div>
-                            <p
-                              style={{
-                                fontWeight: 600,
-                                color: "#0f172a",
-                                margin: 0,
-                              }}
-                            >
-                              {user.full_name}
-                            </p>
-
-                            <p
-                              style={{
-                                fontSize: 12,
-                                color: "#94a3b8",
-                                margin: 0,
-                              }}
-                            >
-                              LMS User
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* EMAIL */}
-
-                      <td
-                        style={{
-                          padding: "14px 20px",
-                          color: "#64748b",
-                          fontSize: 13,
-                        }}
-                      >
-                        {user.email}
-                      </td>
-
-                      {/* ROLE */}
-
-                      <td style={{ padding: "14px 20px" }}>
-                        <RoleBadge role={user.role} />
-                      </td>
-
-                      {/* DATE */}
-
-                      <td
-                        style={{
-                          padding: "14px 20px",
-                          color: "#94a3b8",
-                          fontSize: 13,
-                        }}
-                      >
-                        {new Date(
-                          user.created_at
-                        ).toLocaleDateString()}
-                      </td>
-
-                      {/* ACTIONS */}
-
-                      <td style={{ padding: "14px 20px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            gap: 6,
-                          }}
-                        >
-                          <ActionBtn
-                            icon={<Eye />}
-                            label="View"
-                          />
-                          <ActionBtn
-                            icon={<Pencil />}
-                            label="Edit"
-                          />
-                          <ActionBtn
-                            icon={<ShieldOff />}
-                            label="Disable"
-                            danger
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      padding: "60px 20px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <Users
-                      style={{
-                        width: 40,
-                        height: 40,
-                        color: "#e2e8f0",
-                        marginBottom: 12,
-                      }}
-                    />
-
-                    <p
-                      style={{
-                        color: "#94a3b8",
-                        fontSize: 13,
-                      }}
-                    >
-                      No users found.
-                    </p>
-                  </td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* MODAL */}
-
+      {/* ADD USER MODAL */}
       {showModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            background: "rgba(15,23,42,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              background: "#fff",
-              borderRadius: 20,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: 5,
-                background:
-                  "linear-gradient(90deg, #7c3aed, #a78bfa, #6366f1)",
-              }}
+        <ModalWrapper onClose={() => setShowModal(false)}>
+          <ModalHeader
+            title="Add New User"
+            subtitle="Create a new LMS account."
+            onClose={() => setShowModal(false)}
+          />
+
+          <div className="space-y-4">
+            <Field
+              label="Full Name"
+              placeholder="John Doe"
+              value={fullName}
+              onChange={setFullName}
             />
 
-            <div
-              style={{
-                padding: "24px 24px 0",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    margin: 0,
-                  }}
-                >
-                  Add New User
-                </h2>
+            <Field
+              label="Email"
+              placeholder="john@gmail.com"
+              value={email}
+              onChange={setEmail}
+            />
 
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "#94a3b8",
-                    marginTop: 4,
-                  }}
-                >
-                  Create a new LMS account.
-                </p>
-              </div>
+            <Field
+              label="Password"
+              placeholder="Temporary password"
+              value={password}
+              onChange={setPassword}
+              type="password"
+            />
 
+            <RoleSelect value={role} onChange={setRole} />
+
+            <div className="flex gap-3 pt-2">
               <button
-                onClick={closeModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <X />
-              </button>
-            </div>
-
-            <div
-              style={{
-                padding: 24,
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
-              <Field
-                label="Full Name"
-                placeholder="e.g. John Doe"
-                value={fullName}
-                onChange={setFullName}
-              />
-
-              <Field
-                label="Email Address"
-                placeholder="e.g. user@gmail.com"
-                value={email}
-                onChange={setEmail}
-                type="email"
-              />
-
-              <Field
-                label="Temporary Password"
-                placeholder="Enter temporary password"
-                value={password}
-                onChange={setPassword}
-                type="password"
-              />
-
-              <div>
-                <label
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    display: "block",
-                    marginBottom: 6,
-                  }}
-                >
-                  Role
-                </label>
-
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: 44,
-                    borderRadius: 12,
-                    border: "1.5px solid #e2e8f0",
-                    background: "#f8fafc",
-                    padding: "0 14px",
-                    fontSize: 13,
-                    outline: "none",
-                  }}
-                >
-                  <option value="student">Student</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="parent">Parent</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-                padding: "14px 24px 20px",
-                borderTop: "1px solid #f1f5f9",
-              }}
-            >
-              <button
-                onClick={closeModal}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  padding: "0 18px",
-                  cursor: "pointer",
-                }}
+                onClick={() => setShowModal(false)}
+                className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold"
               >
                 Cancel
               </button>
@@ -853,56 +476,156 @@ export default function AdminUsersPage() {
               <button
                 onClick={saveUser}
                 disabled={saving}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "none",
-                  background:
-                    "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  padding: "0 20px",
-                  cursor: "pointer",
-                  opacity: saving ? 0.7 : 1,
-                }}
+                className="h-11 flex-1 rounded-xl bg-violet-700 text-sm font-semibold text-white"
               >
                 {saving ? "Saving..." : "Save User"}
               </button>
             </div>
           </div>
-        </div>
+        </ModalWrapper>
       )}
-    </div>
+
+      {/* VIEW MODAL */}
+      {viewUser && (
+        <ModalWrapper onClose={() => setViewUser(null)}>
+          <ModalHeader
+            title="User Details"
+            subtitle="View account information."
+            onClose={() => setViewUser(null)}
+          />
+
+          <div className="space-y-4">
+            <InfoRow
+              icon={<Mail className="h-4 w-4" />}
+              label="Email"
+              value={viewUser.email}
+            />
+
+            <InfoRow
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Joined"
+              value={new Date(viewUser.created_at).toLocaleDateString()}
+            />
+
+            <InfoRow
+              icon={<Shield className="h-4 w-4" />}
+              label="Role"
+              value={viewUser.role}
+            />
+          </div>
+        </ModalWrapper>
+      )}
+
+      {/* EDIT MODAL */}
+      {editUser && (
+        <ModalWrapper onClose={() => setEditUser(null)}>
+          <ModalHeader
+            title="Edit User"
+            subtitle="Update account information."
+            onClose={() => setEditUser(null)}
+          />
+
+          <div className="space-y-4">
+            <Field
+              label="Full Name"
+              placeholder="Full name"
+              value={editName}
+              onChange={setEditName}
+            />
+
+            <Field
+              label="Email"
+              placeholder="Email"
+              value={editEmail}
+              onChange={setEditEmail}
+            />
+
+            <RoleSelect value={editRole} onChange={setEditRole} />
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setEditUser(null)}
+                className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={updateUser}
+                disabled={updating}
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-700 text-sm font-semibold text-white"
+              >
+                <Save className="h-4 w-4" />
+                {updating ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
+
+      {/* DISABLE MODAL */}
+      {disableUser && (
+        <ModalWrapper onClose={() => setDisableUser(null)}>
+          <div className="space-y-5 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
+              <AlertTriangle className="h-8 w-8 text-rose-500" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Disable Account
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Disable {disableUser.full_name}'s account?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDisableUser(null)}
+                className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={disableAccount}
+                disabled={disabling}
+                className="h-11 flex-1 rounded-xl bg-rose-600 text-sm font-semibold text-white"
+              >
+                {disabling ? "Disabling..." : "Disable"}
+              </button>
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
+    </section>
   )
 }
 
-/* ───────────────────────────────────────────── */
+/* COMPONENTS */
 
 function RoleBadge({ role }: { role: string }) {
   const m = ROLE_META[role]
 
+  if (!m) return null
+
   return (
     <span
+      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        borderRadius: 999,
-        padding: "3px 10px",
-        fontSize: 12,
-        fontWeight: 600,
         background: m.badgeBg,
         color: m.badgeText,
       }}
     >
       <span
+        className="h-2 w-2 rounded-full"
         style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
           background: m.dotColor,
         }}
       />
+
       {m.label}
     </span>
   )
@@ -910,33 +633,23 @@ function RoleBadge({ role }: { role: string }) {
 
 function ActionBtn({
   icon,
-  label,
   danger = false,
+  onClick,
 }: {
   icon: React.ReactNode
-  label: string
   danger?: boolean
+  onClick?: () => void
 }) {
   return (
     <button
-      type="button"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        borderRadius: 8,
-        fontSize: 12,
-        padding: "5px 10px",
-        border: danger
-          ? "1px solid #ffe4e6"
-          : "1px solid #e2e8f0",
-        background: danger ? "#fff1f2" : "#f8fafc",
-        color: danger ? "#f43f5e" : "#475569",
-        cursor: "pointer",
-      }}
+      onClick={onClick}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+        danger
+          ? "border-rose-100 bg-rose-50 text-rose-500 hover:bg-rose-100"
+          : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+      }`}
     >
       {icon}
-      {label}
     </button>
   )
 }
@@ -956,14 +669,7 @@ function Field({
 }) {
   return (
     <div>
-      <label
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          display: "block",
-          marginBottom: 6,
-        }}
-      >
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
         {label}
       </label>
 
@@ -972,18 +678,125 @@ function Field({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          height: 44,
-          borderRadius: 12,
-          border: "1.5px solid #e2e8f0",
-          background: "#f8fafc",
-          padding: "0 14px",
-          fontSize: 13,
-          outline: "none",
-          boxSizing: "border-box",
-        }}
+        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-500"
       />
     </div>
   )
+}
+
+function RoleSelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
+        Role
+      </label>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-500"
+      >
+        <option value="student">Student</option>
+        <option value="teacher">Teacher</option>
+        <option value="parent">Parent</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  )
+}
+
+function ModalWrapper({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-99999 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ModalHeader({
+  title,
+  subtitle,
+  onClose,
+}: {
+  title: string
+  subtitle: string
+  onClose: () => void
+}) {
+  return (
+    <div className="mb-5 flex items-start justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">
+          {title}
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-400">
+          {subtitle}
+        </p>
+      </div>
+
+      <button
+        onClick={onClose}
+        className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  )
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+        {icon}
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          {label}
+        </p>
+
+        <p className="mt-1 text-sm font-semibold text-slate-900">
+          {value}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 }
