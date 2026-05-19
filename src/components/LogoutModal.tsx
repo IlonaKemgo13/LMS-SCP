@@ -19,20 +19,26 @@ export default function LogoutModal() {
   }, [])
 
   async function handleLogout() {
-    setLoading(true)
+    try {
+      setLoading(true)
 
-    await supabase.auth.signOut()
+      await supabase.auth.signOut()
 
-    router.push("/")
-    router.refresh()
+      router.push("/")
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const modal =
     open && mounted
       ? createPortal(
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-md">
+          <div className="fixed inset-0 z-999999 flex items-center justify-center bg-black/40 p-4 backdrop-blur-md">
             <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-              <div className="h-1 bg-gradient-to-r from-red-500 via-rose-500 to-pink-500" />
+              <div className="h-1 bg-linear-to-r from-red-500 via-rose-500 to-pink-500" />
 
               <div className="p-6 sm:p-7">
                 <div className="mb-6 flex items-start justify-between gap-4">
@@ -82,6 +88,7 @@ export default function LogoutModal() {
 
   return (
     <>
+      {/* LOGOUT BUTTON */}
       <button
         type="button"
         onClick={() => setOpen(true)}
