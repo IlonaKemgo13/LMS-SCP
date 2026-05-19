@@ -8,12 +8,37 @@ export default function TeacherLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Sidebar */}
       <TeacherSidebar />
 
-      <div className="ml-64 flex min-h-screen flex-col">
-        <TeacherTopbar />
+      {/* Topbar */}
+      <TeacherTopbar />
 
-        <main className="flex-1 p-6 pt-22">
+      {/* Main Layout */}
+      <div
+        className="
+          min-h-screen
+          transition-all
+          duration-300
+
+          lg:ml-64
+        "
+      >
+        {/* Mobile spacing for fixed topbar */}
+        <main
+          className="
+            w-full
+            overflow-x-hidden
+
+            pt-28
+            pb-6
+
+            px-4
+            sm:px-6
+            lg:px-8
+            lg:pt-24
+          "
+        >
           {children}
         </main>
       </div>
