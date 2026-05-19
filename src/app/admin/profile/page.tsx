@@ -20,6 +20,7 @@ type Profile = {
   email: string
   role: string
   created_at: string
+  avatar_url: string | null
 }
 
 const AVATAR_GRADIENTS = [
@@ -125,14 +126,20 @@ export default function AdminProfilePage() {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, created_at"
+        "id, full_name, email, role, created_at, avatar_url"
       )
       .eq("id", user.id)
       .single()
 
     if (!error && data) {
-      setProfile(data)
-    }
+  setProfile(data)
+
+  if (data.avatar_url) {
+    setAvatarUrl(
+      data.avatar_url + "?t=" + Date.now()
+    )
+  }
+}
 
     setLoading(false)
   }
@@ -163,15 +170,41 @@ export default function AdminProfilePage() {
       return
     }
 
-    const { data } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(path)
+   const { data } = supabase.storage
+  .from("avatars")
+  .getPublicUrl(path)
 
-    setAvatarUrl(
-      data.publicUrl + "?t=" + Date.now()
-    )
+const cleanUrl = data.publicUrl
 
-    setUploading(false)
+const avatarWithTimestamp =
+  cleanUrl + "?t=" + Date.now()
+
+const { error: profileError } =
+  await supabase
+    .from("profiles")
+    .update({
+      avatar_url: cleanUrl,
+    })
+    .eq("id", profile.id)
+
+if (profileError) {
+  alert(profileError.message)
+  setUploading(false)
+  return
+}
+
+setAvatarUrl(avatarWithTimestamp)
+
+setProfile({
+  ...profile,
+  avatar_url: cleanUrl,
+})
+
+window.dispatchEvent(
+  new Event("profile-avatar-updated")
+)
+
+setUploading(false)
   }
 
   async function handleChangePassword() {
@@ -248,7 +281,7 @@ export default function AdminProfilePage() {
     <section className="space-y-6 px-4 pb-6 pt-20 sm:px-6 lg:px-8 lg:pt-6">
       {/* HERO */}
 
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-6 text-white shadow-xl sm:p-8">
+      <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-slate-900 via-indigo-900 to-purple-900 p-6 text-white shadow-xl sm:p-8">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl" />
 
         <div className="absolute bottom-0 right-24 h-32 w-32 rounded-full bg-indigo-500/20 blur-3xl" />
@@ -282,7 +315,7 @@ export default function AdminProfilePage() {
           {/* LEFT CARD */}
 
           <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
-            <div className="h-1.5 bg-gradient-to-r from-violet-600 via-violet-400 to-indigo-500" />
+            <div className="h-1.5 bg-linear-to-r from-violet-600 via-violet-400 to-indigo-500" />
 
             <div className="p-6">
               {/* AVATAR */}
@@ -392,7 +425,7 @@ export default function AdminProfilePage() {
             {/* OVERVIEW */}
 
             <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
-              <div className="h-1.5 bg-gradient-to-r from-violet-600 via-violet-400 to-indigo-500" />
+              <div className="h-1.5 bg-linear-to-r from-violet-600 via-violet-400 to-indigo-500" />
 
               <div className="p-6">
                 <h2 className="text-xl font-bold text-slate-900">
@@ -452,7 +485,7 @@ export default function AdminProfilePage() {
             {/* PERMISSIONS */}
 
             <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
-              <div className="h-1.5 bg-gradient-to-r from-rose-500 via-violet-600 to-cyan-500" />
+              <div className="h-1.5 bg-linear-to-r from-rose-500 via-violet-600 to-cyan-500" />
 
               <div className="p-6">
                 <div className="mb-6 flex items-center gap-3">
@@ -502,9 +535,9 @@ export default function AdminProfilePage() {
       {/* PASSWORD MODAL */}
 
       {showPwModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white shadow-2xl">
-            <div className="h-1.5 bg-gradient-to-r from-violet-600 via-violet-400 to-indigo-500" />
+            <div className="h-1.5 bg-linear-to-r from-violet-600 via-violet-400 to-indigo-500" />
 
             <div className="flex items-start justify-between p-6">
               <div>

@@ -167,22 +167,32 @@ export default function AdminUsersPage() {
     setEditRole(user.role)
   }
 
-  async function updateUser() {
-    if (!editUser) return
+ async function updateUser() {
+  if (!editUser) return
 
-    setUpdating(true)
+  setUpdating(true)
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: editName,
-        email: editEmail,
-        role: editRole,
-      })
-      .eq("id", editUser.id)
+  try {
+    const response = await fetch(
+      "/api/admin/update-user",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editUser.id,
+          fullName: editName,
+          email: editEmail,
+          role: editRole,
+        }),
+      }
+    )
 
-    if (error) {
-      alert(error.message)
+    const result = await response.json()
+
+    if (!response.ok) {
+      alert(result.error || "Failed to update user.")
       setUpdating(false)
       return
     }
@@ -191,8 +201,13 @@ export default function AdminUsersPage() {
 
     setUpdating(false)
     setEditUser(null)
-  }
+  } catch (error) {
+    console.error(error)
 
+    alert("Something went wrong.")
+    setUpdating(false)
+  }
+}
   async function disableAccount() {
     if (!disableUser) return
 

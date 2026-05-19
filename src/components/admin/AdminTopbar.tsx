@@ -9,6 +9,7 @@ type Profile = {
   full_name: string
   email: string
   role: string
+  avatar_url: string | null
 }
 
 export default function AdminTopbar() {
@@ -17,8 +18,14 @@ export default function AdminTopbar() {
   const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
+  fetchProfile()
+
+  window.addEventListener("profile-avatar-updated", fetchProfile)
+
+  return () => {
+    window.removeEventListener("profile-avatar-updated", fetchProfile)
+  }
+}, [])
 
   const fetchProfile = async () => {
     const {
@@ -29,7 +36,7 @@ export default function AdminTopbar() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, role")
+      .select("id, full_name, email, role, avatar_url")
       .eq("id", user.id)
       .single()
 
@@ -44,6 +51,7 @@ export default function AdminTopbar() {
     .split(" ")
     .map((name) => name[0])
     .join("")
+    .slice(0, 2)
     .toUpperCase()
 
   return (
@@ -74,9 +82,17 @@ export default function AdminTopbar() {
             {adminName}
           </span>
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white sm:h-10 sm:w-10 sm:text-sm">
-            {initials}
-          </div>
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-xs font-bold text-white sm:h-10 sm:w-10 sm:text-sm">
+  {profile?.avatar_url ? (
+    <img
+      src={`${profile.avatar_url}?t=${Date.now()}`}
+      alt="Admin avatar"
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    initials
+  )}
+</div>
         </div>
       </div>
     </header>
