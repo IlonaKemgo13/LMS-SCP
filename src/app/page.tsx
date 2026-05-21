@@ -1,4 +1,4 @@
-﻿﻿"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -97,11 +97,11 @@ export default function Home() {
 
         {/* Forgot Password Modal */}
         {showForgotModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl mx-4 text-slate-900">
-              <div className="flex items-center justify-between mb-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl text-slate-900 sm:p-8">
+              <div className="flex items-center justify-between mb-5 sm:mb-6">
                 <div>
-                  <h2 className="font-display text-xl font-bold text-slate-900">Reset Password</h2>
+                  <h2 className="font-display text-lg font-bold text-slate-900 sm:text-xl">Reset Password</h2>
                   <p className="text-sm text-slate-500 mt-1">Enter your email to receive a secure reset link.</p>
                 </div>
                 <button
@@ -149,51 +149,51 @@ export default function Home() {
           </div>
         )}
 
-        <section className="flex min-h-screen w-full items-center px-6 py-12">
-          <div className="grid w-full gap-16 lg:grid-cols-2 lg:items-center max-w-7xl mx-auto">
+        <section className="flex min-h-screen w-full items-center px-4 py-8 sm:px-6 sm:py-12">
+          <div className="mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
 
             {/* Left side */}
-            <div className="space-y-10">
+            <div className="space-y-8 sm:space-y-10">
 
               {/* Logo */}
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 border border-white/20">
-                  <span className="text-xs font-bold tracking-widest text-white">SCP</span>
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 sm:h-12 sm:w-12">
+                  <span className="text-[10px] font-bold tracking-widest text-white sm:text-xs">SCP</span>
                 </div>
                 <div>
-                  <p className="font-display text-xl font-semibold tracking-wide">SCP Portal</p>
-                  <p className="text-xs text-blue-300 tracking-wider uppercase mt-0.5">School Communication Platform</p>
+                  <p className="font-display text-lg font-semibold tracking-wide sm:text-xl">SCP Portal</p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-wider text-blue-300 sm:text-xs">School Communication Platform</p>
                 </div>
               </div>
 
               {/* Heading */}
-              <div className="space-y-6">
-                <span className="inline-block text-xs font-semibold text-blue-300 uppercase tracking-widest border-b border-blue-400/40 pb-2">
+              <div className="space-y-4 sm:space-y-6">
+                <span className="inline-block border-b border-blue-400/40 pb-2 text-[10px] font-semibold uppercase tracking-widest text-blue-300 sm:text-xs">
                   Academic Management System
                 </span>
 
-                <h1 className="font-display text-5xl xl:text-6xl font-bold leading-tight">
-                  A smarter way<br />
-                  to manage<br />
-                  <span className="text-blue-400">school communication</span>
+                <h1 className="font-display text-3xl font-bold leading-tight sm:text-5xl xl:text-6xl">
+                  A smarter way<br className="hidden sm:block" />
+                  {" "}to manage<br className="hidden sm:block" />
+                  {" "}<span className="text-blue-400">school communication</span>
                 </h1>
 
-                <p className="text-base leading-8 text-slate-300 max-w-lg">
+                <p className="max-w-lg text-sm leading-7 text-slate-300 sm:text-base sm:leading-8">
                   Connect administrators, teachers, students, and parents in one modern platform for announcements, learning materials, and school updates.
                 </p>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Stats - hidden on mobile when form is visible, shown on sm+ */}
+              <div className="hidden grid-cols-3 gap-3 sm:grid sm:gap-4">
                 {[
                   { value: "4", label: "Roles", desc: "User types" },
                   { value: "24/7", label: "Access", desc: "Availability" },
                   { value: "SSL", label: "Secure", desc: "Encrypted" },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-sm">
-                    <p className="text-xl font-bold text-white">{item.value}</p>
-                    <p className="text-xs font-semibold text-slate-300 mt-1 uppercase tracking-wider">{item.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
+                  <div key={item.label} className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm sm:p-4">
+                    <p className="text-lg font-bold text-white sm:text-xl">{item.value}</p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300 sm:text-xs">{item.label}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500 sm:text-xs">{item.desc}</p>
                   </div>
                 ))}
               </div>
@@ -202,19 +202,19 @@ export default function Home() {
             {/* Right side - Login form */}
             <div className="flex justify-center lg:justify-end">
               <div className="w-full max-w-md">
-                <div className="rounded-3xl border border-white/10 bg-white p-10 text-slate-900 shadow-2xl">
+                <div className="rounded-2xl border border-white/10 bg-white p-6 text-slate-900 shadow-2xl sm:rounded-3xl sm:p-10">
 
-                  <div className="mb-8">
-                    <h2 className="font-display text-3xl font-bold text-slate-900">Welcome Back</h2>
+                  <div className="mb-6 sm:mb-8">
+                    <h2 className="font-display text-2xl font-bold text-slate-900 sm:text-3xl">Welcome Back</h2>
                     <p className="mt-2 text-sm text-slate-500">
                       Sign in to access your school portal
                     </p>
-                    <div className="mt-4 h-px bg-gradient-to-r from-blue-600/40 via-blue-400/20 to-transparent" />
+                    <div className="mt-3 h-px bg-gradient-to-r from-blue-600/40 via-blue-400/20 to-transparent sm:mt-4" />
                   </div>
 
-                  <form onSubmit={handleLogin} className="space-y-5">
+                  <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-400">
                         Email Address
                       </label>
                       <input
@@ -222,14 +222,14 @@ export default function Home() {
                         placeholder="Enter your email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                         required
                       />
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-xs font-semibold uppercase tracking-widest text-slate-400">
                           Password
                         </label>
                         <button
@@ -246,13 +246,13 @@ export default function Home() {
                           placeholder="Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 px-4 pr-16 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-16 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600 tracking-wider uppercase"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
                         >
                           {showPassword ? "Hide" : "Show"}
                         </button>
@@ -260,7 +260,7 @@ export default function Home() {
                     </div>
 
                     {errorMessage && (
-                      <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+                      <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
                         <p className="text-sm text-red-600">{errorMessage}</p>
                       </div>
                     )}
@@ -268,15 +268,15 @@ export default function Home() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white shadow-lg transition hover:bg-blue-700 active:scale-95 disabled:opacity-60 tracking-wide"
+                      className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold tracking-wide text-white shadow-lg transition hover:bg-blue-700 active:scale-95 disabled:opacity-60"
                     >
                       {loading ? "Signing in..." : "Sign In"}
                     </button>
                   </form>
 
-                  <div className="mt-8">
-                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent mb-5" />
-                    <p className="text-center text-xs text-slate-400 tracking-wider uppercase">
+                  <div className="mt-6 sm:mt-8">
+                    <div className="mb-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent sm:mb-5" />
+                    <p className="text-center text-[10px] uppercase tracking-wider text-slate-400 sm:text-xs">
                       Administrators · Teachers · Students · Parents
                     </p>
                   </div>
