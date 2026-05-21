@@ -39,6 +39,7 @@ export default function StudentCoursesPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     async function fetchCoursesPageData() {
@@ -46,7 +47,7 @@ export default function StudentCoursesPage() {
       const userId = userData.user?.id;
 
       if (!userId) {
-        router.push('/');
+        router.push("/");
         return;
       }
 
@@ -91,6 +92,21 @@ export default function StudentCoursesPage() {
     fetchCoursesPageData();
   }, []);
 
+  const handleNavClick = () => {
+    setSidebarOpen(false);
+  };
+
+  const navItems = [
+    { name: "Dashboard", href: "/student-dashboard" },
+    { name: "Announcements", href: "/student-announcements" },
+    { name: "Courses", href: "/student-courses" },
+    { name: "Grades", href: "/student-grades" },
+    { name: "Recordings", href: "/student-recordings" },
+    { name: "Materials", href: "/student-materials" },
+    { name: "Results", href: "/student-results" },
+    { name: "Settings", href: "/student-settings" },
+  ];
+
   const filteredCourses = useMemo(() => {
     return courses.filter((course) =>
       `${course.title} ${course.description || ""} ${course.code || ""}`
@@ -101,17 +117,14 @@ export default function StudentCoursesPage() {
 
   function getCourseAverage(courseId: string) {
     const courseGrades = grades.filter((grade) => grade.course_id === courseId);
-
     const totalScore = courseGrades.reduce(
       (sum, grade) => sum + Number(grade.score || 0),
       0
     );
-
     const totalMax = courseGrades.reduce(
       (sum, grade) => sum + Number(grade.max_score || 0),
       0
     );
-
     return totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : null;
   }
 
@@ -127,26 +140,52 @@ export default function StudentCoursesPage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <div className="flex min-h-screen">
-        <aside className="w-64 bg-slate-950 text-white">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold">SCP Portal</h1>
-            <p className="text-sm text-slate-400">Student Workspace</p>
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-slate-950 text-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between p-6">
+            <div>
+              <h1 className="text-2xl font-bold">SCP Portal</h1>
+              <p className="text-sm text-slate-400">Student Workspace</p>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
           </div>
 
           <nav className="mt-6 space-y-2 px-4">
-            {[
-              { name: "Dashboard", href: "/student-dashboard" },
-              { name: "Announcements", href: "/student-announcements" },
-              { name: "Courses", href: "/student-courses" },
-              { name: "Grades", href: "/student-grades" },
-              { name: "Recordings", href: "/student-recordings" },
-              { name: "Materials", href: "/student-materials" },
-              { name: "Results", href: "/student-results" },
-              { name: "Settings", href: "/student-settings" },
-            ].map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={handleNavClick}
                 className={`block rounded-xl px-4 py-3 text-sm font-medium ${
                   item.name === "Courses"
                     ? "bg-blue-600 text-white"
@@ -168,7 +207,7 @@ export default function StudentCoursesPage() {
           <button
             onClick={async () => {
               await supabase.auth.signOut();
-              router.push('/');
+              router.push("/");
             }}
             className="mx-4 mt-4 block w-[calc(100%-2rem)] rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
           >
@@ -176,69 +215,107 @@ export default function StudentCoursesPage() {
           </button>
         </aside>
 
-        <section className="flex-1">
-          <header className="flex items-center justify-between border-b bg-white px-8 py-5">
-            <div>
-              <p className="text-sm text-slate-500">Student Workspace</p>
-              <h2 className="text-2xl font-bold">My Courses</h2>
+        {/* Main content */}
+        <section className="flex-1 min-w-0">
+          <header className="flex items-center justify-between border-b bg-white px-4 py-4 sm:px-8 sm:py-5">
+            <div className="flex items-center gap-3">
+              {/* Hamburger */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
+              </button>
+              <div>
+                <p className="text-sm text-slate-500">Student Workspace</p>
+                <h2 className="text-lg font-bold sm:text-2xl">My Courses</h2>
+              </div>
             </div>
 
-            <div className="rounded-full bg-blue-100 px-5 py-2 font-semibold text-blue-700">
-              {loading ? "Loading..." : `${courses.length} Course(s)`}
+            <div className="rounded-full bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700 sm:px-5 sm:py-2 sm:text-base">
+              {loading ? "..." : `${courses.length} Course(s)`}
             </div>
           </header>
 
-          <div className="space-y-8 p-8">
-            <section className="rounded-3xl bg-gradient-to-r from-blue-700 to-purple-700 p-8 text-white shadow-xl">
-              <p className="text-sm font-semibold uppercase tracking-widest text-blue-100">
+          <div className="space-y-6 p-4 sm:space-y-8 sm:p-8">
+            {/* Hero */}
+            <section className="rounded-2xl bg-gradient-to-r from-blue-700 to-purple-700 p-5 text-white shadow-xl sm:rounded-3xl sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-widest text-blue-100 sm:text-sm">
                 Academic Course Center
               </p>
-              <h1 className="mt-3 text-4xl font-bold">
+              <h1 className="mt-2 text-2xl font-bold sm:mt-3 sm:text-4xl">
                 Your learning hub in one place.
               </h1>
-              <p className="mt-3 max-w-3xl text-blue-100">
+              <p className="mt-2 max-w-3xl text-sm text-blue-100 sm:mt-3 sm:text-base">
                 Review enrolled courses, monitor academic performance, open
                 course materials, and access recordings or announcements.
               </p>
             </section>
 
-            <section className="grid gap-6 md:grid-cols-4">
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-500">Enrolled Courses</p>
-                <h3 className="mt-2 text-3xl font-bold">
+            {/* Stats */}
+            <section className="grid gap-4 grid-cols-2 sm:gap-6 md:grid-cols-4">
+              <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+                <p className="text-xs text-slate-500 sm:text-sm">
+                  Enrolled Courses
+                </p>
+                <h3 className="mt-1.5 text-2xl font-bold sm:mt-2 sm:text-3xl">
                   {loading ? "..." : courses.length}
                 </h3>
-                <p className="mt-1 text-sm text-slate-400">Active courses</p>
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+                  Active courses
+                </p>
               </div>
 
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-500">Total Grades</p>
-                <h3 className="mt-2 text-3xl font-bold">
+              <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+                <p className="text-xs text-slate-500 sm:text-sm">
+                  Total Grades
+                </p>
+                <h3 className="mt-1.5 text-2xl font-bold sm:mt-2 sm:text-3xl">
                   {loading ? "..." : grades.length}
                 </h3>
-                <p className="mt-1 text-sm text-slate-400">Recorded scores</p>
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+                  Recorded scores
+                </p>
               </div>
 
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-500">Recordings</p>
-                <h3 className="mt-2 text-3xl font-bold">
+              <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+                <p className="text-xs text-slate-500 sm:text-sm">Recordings</p>
+                <h3 className="mt-1.5 text-2xl font-bold sm:mt-2 sm:text-3xl">
                   {loading ? "..." : recordings.length}
                 </h3>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">
                   Available lectures
                 </p>
               </div>
 
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-500">Course Updates</p>
-                <h3 className="mt-2 text-3xl font-bold">
+              <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
+                <p className="text-xs text-slate-500 sm:text-sm">
+                  Course Updates
+                </p>
+                <h3 className="mt-1.5 text-2xl font-bold sm:mt-2 sm:text-3xl">
                   {loading ? "..." : announcements.length}
                 </h3>
-                <p className="mt-1 text-sm text-slate-400">Notices received</p>
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+                  Notices received
+                </p>
               </div>
             </section>
 
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
+            {/* Course list */}
+            <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h3 className="text-xl font-bold">Enrolled Courses</h3>
@@ -251,15 +328,15 @@ export default function StudentCoursesPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by course, code, or domain..."
-                  className="w-full rounded-xl border px-4 py-3 outline-none focus:border-blue-500 md:w-96"
+                  className="w-full rounded-xl border px-4 py-3 text-sm outline-none focus:border-blue-500 md:w-96"
                 />
               </div>
 
-              <div className="mt-6 grid gap-5 lg:grid-cols-2">
+              <div className="mt-4 grid gap-4 grid-cols-1 lg:grid-cols-2 sm:mt-6 sm:gap-5">
                 {loading ? (
                   <p className="text-sm text-slate-500">Loading courses...</p>
                 ) : filteredCourses.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed p-8 text-center lg:col-span-2">
+                  <div className="rounded-2xl border border-dashed p-6 text-center sm:p-8 lg:col-span-2">
                     <p className="font-semibold">No courses found.</p>
                     <p className="mt-1 text-sm text-slate-500">
                       Your enrolled courses will appear here.
@@ -276,14 +353,14 @@ export default function StudentCoursesPage() {
                     return (
                       <div
                         key={course.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
                             <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
                               {course.code || "Course"}
                             </p>
-                            <h4 className="mt-2 text-xl font-bold">
+                            <h4 className="mt-1.5 text-lg font-bold sm:mt-2 sm:text-xl">
                               {course.title}
                             </h4>
                             <p className="mt-1 text-sm text-slate-500">
@@ -291,52 +368,54 @@ export default function StudentCoursesPage() {
                             </p>
                           </div>
 
-                          <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                          <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
                             Enrolled
                           </span>
                         </div>
 
-                        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                          <div className="rounded-xl bg-slate-50 p-4">
+                        <div className="mt-4 grid gap-2 grid-cols-3 sm:mt-6 sm:gap-3">
+                          <div className="rounded-xl bg-slate-50 p-3 sm:p-4">
                             <p className="text-xs text-slate-500">Average</p>
-                            <p className="mt-1 text-xl font-bold text-blue-600">
+                            <p className="mt-1 text-lg font-bold text-blue-600 sm:text-xl">
                               {average !== null ? `${average}%` : "N/A"}
                             </p>
                           </div>
 
-                          <div className="rounded-xl bg-slate-50 p-4">
-                            <p className="text-xs text-slate-500">Recordings</p>
-                            <p className="mt-1 text-xl font-bold">
+                          <div className="rounded-xl bg-slate-50 p-3 sm:p-4">
+                            <p className="text-xs text-slate-500">
+                              Recordings
+                            </p>
+                            <p className="mt-1 text-lg font-bold sm:text-xl">
                               {recordingCount}
                             </p>
                           </div>
 
-                          <div className="rounded-xl bg-slate-50 p-4">
+                          <div className="rounded-xl bg-slate-50 p-3 sm:p-4">
                             <p className="text-xs text-slate-500">Updates</p>
-                            <p className="mt-1 text-xl font-bold">
+                            <p className="mt-1 text-lg font-bold sm:text-xl">
                               {announcementCount}
                             </p>
                           </div>
                         </div>
 
-                        <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="mt-4 flex flex-wrap gap-2 sm:mt-6 sm:gap-3">
                           <Link
                             href="/student-grades"
-                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white active:scale-95 transition-transform sm:px-4 sm:text-sm"
                           >
                             View Grades
                           </Link>
 
                           <Link
                             href="/student-recordings"
-                            className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700"
+                            className="rounded-lg border px-3 py-2 text-xs font-semibold text-slate-700 active:scale-95 transition-transform sm:px-4 sm:text-sm"
                           >
                             Recordings
                           </Link>
 
                           <Link
                             href="/student-announcements"
-                            className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700"
+                            className="rounded-lg border px-3 py-2 text-xs font-semibold text-slate-700 active:scale-95 transition-transform sm:px-4 sm:text-sm"
                           >
                             Announcements
                           </Link>
