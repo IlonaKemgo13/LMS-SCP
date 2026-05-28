@@ -110,12 +110,14 @@ export default function AdminReportsPage() {
         supabase
           .from("profiles")
           .select("id, full_name, email, role, created_at")
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(200),
 
         supabase
           .from("courses")
           .select("id, title, code, created_at")
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(100),
 
         supabase
           .from("enrollments")

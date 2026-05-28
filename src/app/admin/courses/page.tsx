@@ -9,6 +9,7 @@ import {
   ChevronDown,
   GraduationCap,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type Teacher = {
@@ -112,27 +113,32 @@ export default function AdminCoursesPage() {
 
   async function addCourse() {
     if (!title) {
-      alert("Please enter course title.")
+      toast.error("Please enter course title.")
       return
     }
 
     setSaving(true)
 
-    const { error } = await supabase.from("courses").insert({
-      title,
-      code: code || null,
-      description: description || null,
-      teacher_id: teacherId || null,
+    const res  = await fetch("/api/admin/courses", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        title,
+        code:        code        || undefined,
+        description: description || undefined,
+        teacher_id:  teacherId   || undefined,
+      }),
     })
+    const json = await res.json()
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok) {
+      toast.error(json.error || "Failed to create course.")
       setSaving(false)
       return
     }
 
+    toast.success("Course created!")
     await fetchCourses()
-
     setSaving(false)
     closeModal()
   }

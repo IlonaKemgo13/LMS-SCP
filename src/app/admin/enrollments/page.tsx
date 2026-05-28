@@ -10,6 +10,7 @@ import {
   Users,
   X,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type Student = {
@@ -195,27 +196,27 @@ export default function AdminEnrollmentsPage() {
 
   async function addEnrollment() {
     if (!studentId || !courseId) {
-      alert("Please select a student and course.")
+      toast.error("Please select a student and course.")
       return
     }
 
     setSaving(true)
 
-    const { error } = await supabase
-      .from("enrollments")
-      .insert({
-        student_id: studentId,
-        course_id: courseId,
-      })
+    const res  = await fetch("/api/admin/enrollments", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ student_id: studentId, course_id: courseId }),
+    })
+    const json = await res.json()
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok) {
+      toast.error(json.error || "Failed to add enrollment.")
       setSaving(false)
       return
     }
 
+    toast.success("Student enrolled!")
     await fetchEnrollments()
-
     setSaving(false)
     closeModal()
   }

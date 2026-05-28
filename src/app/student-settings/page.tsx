@@ -1,187 +1,99 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
-type Profile = {
-  role: string | null;
-  full_name: string | null;
-};
+import { useState } from "react"
+import { toast } from "react-hot-toast"
+import { useAuth } from "@/lib/auth-context"
+import StudentLayout from "@/components/student/StudentLayout"
 
 export default function StudentSettingsPage() {
-  const supabase = createClient();
-  const router = useRouter();
+  const { profile, signOut } = useAuth()
 
-  const [email, setEmail] = useState<string | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [currentPassword,   setCurrentPassword]   = useState("")
+  const [newPassword,       setNewPassword]        = useState("")
+  const [confirmPassword,   setConfirmPassword]    = useState("")
+  const [passwordLoading,   setPasswordLoading]    = useState(false)
 
-  useEffect(() => {
-    async function fetchProfile() {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
-
-      if (!user) {
-        router.push('/');
-        return;
-      }
-
-      setEmail(user.email ?? null);
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("role, full_name")
-        .eq("id", user.id)
-        .single();
-
-      setProfile(data ?? null);
-      setLoading(false);
-    }
-
-    fetchProfile();
-  }, []);
+  function closePasswordModal() {
+    setShowPasswordModal(false)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+  }
 
   async function handlePasswordChange() {
-    setPasswordMessage("");
-    setPasswordError("");
-
-    if (!newPassword || !confirmPassword) {
-      setPasswordError("Please fill in all fields.");
-      return;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please fill in all fields.")
+      return
     }
-
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match.");
-      return;
+      toast.error("New passwords do not match.")
+      return
     }
-
     if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
-      return;
+      toast.error("Password must be at least 6 characters.")
+      return
     }
 
-    setPasswordLoading(true);
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-    setPasswordLoading(false);
-
-    if (error) {
-      setPasswordError(error.message);
-    } else {
-      setPasswordMessage("Password updated successfully!");
-      setNewPassword("");
-      setConfirmPassword("");
-      setTimeout(() => {
-        setShowPasswordModal(false);
-        setPasswordMessage("");
-      }, 2000);
+    setPasswordLoading(true)
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || "Failed to update password.")
+      } else {
+        toast.success("Password updated successfully!")
+        closePasswordModal()
+      }
+    } finally {
+      setPasswordLoading(false)
     }
   }
 
   const initials = profile?.full_name
-    ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "ST";
+    ? profile.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
+    : "ST"
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-
-      {/* Sign Out Modal */}
-      {showSignOutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl mx-4">
-            <h2 className="text-xl font-bold text-slate-900">Sign Out</h2>
-            <p className="mt-2 text-sm text-slate-500">Are you sure you want to sign out?</p>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setShowSignOutModal(false)}
-                className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                No, Stay
-              </button>
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.push('/');
-                }}
-                className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Yes, Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Password Modal */}
+    <StudentLayout>
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg-overlay)" }}>
+          <div className="w-full max-w-md rounded-2xl p-8 shadow-2xl mx-4" style={{ background: "var(--color-bg-card)" }}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Manage Password</h2>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setPasswordError("");
-                  setPasswordMessage("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                ✕
-              </button>
+              <h2 className="text-xl font-bold">Change Password</h2>
+              <button onClick={closePasswordModal} className="rounded-full p-2 hover:bg-slate-100">✕</button>
             </div>
-            <p className="text-sm text-slate-500 mb-6">Update your account password below.</p>
             <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">New Password</label>
-                <input
-                  type="password"
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Confirm New Password</label>
-                <input
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                />
-              </div>
-              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-              {passwordMessage && <p className="text-sm text-green-600">{passwordMessage}</p>}
+              {[
+                ["Current Password", currentPassword, setCurrentPassword, "Enter current password"],
+                ["New Password",     newPassword,     setNewPassword,     "Enter new password"],
+                ["Confirm Password", confirmPassword, setConfirmPassword, "Confirm new password"],
+              ].map(([label, value, setter, placeholder]) => (
+                <div key={label as string}>
+                  <label className="mb-1 block text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>{label as string}</label>
+                  <input
+                    type="password"
+                    placeholder={placeholder as string}
+                    value={value as string}
+                    onChange={(e) => (setter as (v: string) => void)(e.target.value)}
+                    className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                    style={{ background: "var(--color-bg-input)" }}
+                  />
+                </div>
+              ))}
               <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setPasswordError("");
-                    setPasswordMessage("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                  }}
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
+                <button onClick={closePasswordModal} className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold" style={{ color: "var(--color-text-secondary)" }}>
                   Cancel
                 </button>
                 <button
                   onClick={handlePasswordChange}
                   disabled={passwordLoading}
-                  className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: "var(--color-student-accent)" }}
                 >
                   {passwordLoading ? "Updating..." : "Update Password"}
                 </button>
@@ -191,141 +103,50 @@ export default function StudentSettingsPage() {
         </div>
       )}
 
-      <div className="flex min-h-screen">
-        <aside className="w-64 bg-slate-950 text-white flex flex-col">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold">SCP Portal</h1>
-            <p className="text-sm text-slate-400">Student Workspace</p>
+      <div className="space-y-6">
+        <section className="rounded-3xl p-8 text-white shadow-xl" style={{ background: "linear-gradient(to right, var(--color-student-hero-from), var(--color-student-hero-to))" }}>
+          <p className="text-sm font-semibold uppercase tracking-widest opacity-80">Account Settings</p>
+          <h1 className="mt-3 text-4xl font-bold">Manage your account.</h1>
+          <p className="mt-3 max-w-3xl opacity-80">View your profile details and manage your account security.</p>
+        </section>
+
+        <div className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)" }}>
+          <h2 className="text-xl font-bold">Profile Information</h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>Your account details from the school portal.</p>
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center gap-4 rounded-xl p-4" style={{ background: "var(--color-neutral-50)" }}>
+              <div className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: "var(--color-student-accent)" }}>
+                {initials}
+              </div>
+              <div>
+                <p className="font-semibold">{profile?.full_name ?? "Student"}</p>
+                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>{profile?.email ?? ""}</p>
+                <p className="text-sm capitalize" style={{ color: "var(--color-text-muted)" }}>{profile?.role ?? "student"}</p>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <nav className="mt-6 space-y-2 px-4 flex-1">
-            {[
-              { name: "Dashboard", href: "/student-dashboard" },
-              { name: "Announcements", href: "/student-announcements" },
-              { name: "Courses", href: "/student-courses" },
-              { name: "Grades", href: "/student-grades" },
-              { name: "Recordings", href: "/student-recordings" },
-              { name: "Materials", href: "/student-materials" },
-              { name: "Results", href: "/student-results" },
-              { name: "Settings", href: "/student-settings" },
-            ].map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`block rounded-xl px-4 py-3 text-sm font-medium ${
-                  item.name === "Settings"
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800"
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="p-4">
-            <button
-              onClick={() => setShowSignOutModal(true)}
-              className="flex items-center gap-2 w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-red-400 hover:bg-slate-800"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Sign Out
+        <div className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)" }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Manage Password</h2>
+              <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>Change your account password anytime.</p>
+            </div>
+            <button onClick={() => setShowPasswordModal(true)} className="rounded-xl px-5 py-3 text-sm font-semibold text-white" style={{ background: "var(--color-student-accent)" }}>
+              Change Password
             </button>
           </div>
-        </aside>
+        </div>
 
-        <section className="flex-1">
-          <header className="flex items-center justify-between border-b bg-white px-8 py-5">
-            <div>
-              <p className="text-sm text-slate-500">Student Workspace</p>
-              <h2 className="text-2xl font-bold">Settings</h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="relative rounded-full p-2 hover:bg-slate-100">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700">
-                  {loading ? "..." : (profile?.full_name ?? "Student")}
-                </span>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                  {initials}
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <div className="space-y-6 p-8">
-            <section className="rounded-3xl bg-gradient-to-r from-blue-700 to-purple-700 p-8 text-white shadow-xl">
-              <p className="text-sm font-semibold uppercase tracking-widest text-blue-100">
-                Account Settings
-              </p>
-              <h1 className="mt-3 text-4xl font-bold">Manage your account.</h1>
-              <p className="mt-3 max-w-3xl text-blue-100">
-                View your profile details and manage your account security.
-              </p>
-            </section>
-
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-bold">Profile Information</h2>
-              <p className="mt-1 text-sm text-slate-500">Your account details from the school portal.</p>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
-                  <div>
-                    <p className="text-sm text-slate-500">Full Name</p>
-                    <p className="mt-0.5 font-semibold">{loading ? "Loading..." : (profile?.full_name ?? "Not set")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
-                  <div>
-                    <p className="text-sm text-slate-500">Email Address</p>
-                    <p className="mt-0.5 font-semibold">{loading ? "Loading..." : (email ?? "Not available")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-slate-50 px-5 py-4">
-                  <div>
-                    <p className="text-sm text-slate-500">Role</p>
-                    <p className="mt-0.5 font-semibold capitalize">{loading ? "Loading..." : (profile?.role ?? "Student")}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">Manage Password</h2>
-                  <p className="mt-1 text-sm text-slate-500">Change your account password anytime.</p>
-                </div>
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  Change Password
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-red-600">Sign Out</h2>
-              <p className="mt-1 text-sm text-slate-500">Sign out of your student portal session.</p>
-              <button
-                onClick={() => setShowSignOutModal(true)}
-                className="mt-4 rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </section>
+        <div className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)", borderColor: "var(--color-danger-light)" }}>
+          <h2 className="text-xl font-bold" style={{ color: "var(--color-danger-main)" }}>Sign Out</h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>Sign out of your student portal session.</p>
+          <button onClick={signOut} className="mt-4 rounded-xl px-6 py-3 text-sm font-semibold text-white" style={{ background: "var(--color-danger-main)" }}>
+            Sign Out
+          </button>
+        </div>
       </div>
-    </main>
-  );
+    </StudentLayout>
+  )
 }
