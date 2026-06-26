@@ -1,4 +1,3 @@
-// src/app/dashboard/parent/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { 
-  LogOut, Key, User, Home, Bell, BookOpen, 
-  Settings, Users, Calendar, 
-  TrendingUp, AlertCircle, Star, Clock, Menu, X
+  LogOut, User, Home, Bell, BookOpen, 
+  Users, Calendar, TrendingUp, AlertCircle, Clock, Menu, X
 } from "lucide-react";
 
 export default function ParentDashboard() {
@@ -20,15 +18,11 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);  // ✅ ADDED
   
   // Dashboard data states
   const [studentsCount, setStudentsCount] = useState(0);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
   const [avgGrade, setAvgGrade] = useState<string>("N/A");
   const [announcementsCount, setAnnouncementsCount] = useState(0);
   const [deadlinesCount, setDeadlinesCount] = useState(0);
@@ -38,124 +32,141 @@ export default function ParentDashboard() {
     async function fetchParentData() {
       setLoading(true);
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      
-      // Get parent profile
-      const { data: parentData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      
-      if (!parentData) {
-        setLoading(false);
-        return;
-      }
-      
-      setParent(parentData);
-      
-      // Get linked students
-      const { data: links } = await supabase
-        .from("parent_student_links")
-        .select("student_id")
-        .eq("parent_id", parentData.id);
-      
-      const studentIds = links?.map((link) => link.student_id) || [];
-      setStudentsCount(studentIds.length);
-      
-      // Get grades to calculate average
-      if (studentIds.length > 0) {
-        const { data: allGrades } = await supabase
-          .from("grades")
-          .select("grade")
-          .in("student_id", studentIds);
+      try {
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (allGrades && allGrades.length > 0) {
-          const average = allGrades.reduce((sum, g) => sum + g.grade, 0) / allGrades.length;
-          setAvgGrade(average.toFixed(1));
+        if (userError || !user) {
+          router.push('/');
+          return;
         }
+        
+        // ✅ ADDED: Get user role first for security check
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, full_name")
+          .eq("id", user.id)
+          .single();
+        
+        if (profileError || !profile) {
+          router.push('/');
+          return;
+        }
+        
+        // ✅ ADDED: Role verification - if not parent, redirect
+        if (profile.role !== 'parent') {
+          setAccessDenied(true);
+          // Redirect to appropriate dashboard based on role
+          if (profile.role === 'student') {
+            router.push('/dashboard/student');
+          } else if (profile.role === 'admin') {
+            router.push('/dashboard/admin');
+          } else if (profile.role === 'teacher') {
+            router.push('/dashboard/teacher');
+          } else {
+            router.push('/unauthorized');
+          }
+          return;
+        }
+        
+        // ✅ MODIFIED: Use profile data instead of fetching again
+        setParent({ full_name: profile.full_name });
+        
+        // Get linked students for this parent ONLY
+        const { data: links, error: linksError } = await supabase
+          .from("parent_student_links")
+          .select("student_id")
+          .eq("parent_id", user.id);
+        
+        if (linksError) {
+          console.error("Links error:", linksError);
+        }
+        
+        const studentIds = links?.map((link) => link.student_id) || [];
+        setStudentsCount(studentIds.length);
+        
+        // Get full student profiles
+        if (studentIds.length > 0) {
+          const { data: studentsData, error: studentsError } = await supabase
+            .from("profiles")
+            .select("*")
+            .in("id", studentIds);
+          
+          if (studentsError) {
+            console.error("Students error:", studentsError);
+          } else {
+            setStudentsList(studentsData || []);
+          }
+          
+          // Get grades to calculate average
+          try {
+            const { data: allGrades } = await supabase
+              .from("grades")
+              .select("grade, student_id")
+              .in("student_id", studentIds);
+            
+            if (allGrades && allGrades.length > 0) {
+              const average = allGrades.reduce((sum, g) => sum + (g.grade || 0), 0) / allGrades.length;
+              setAvgGrade(average.toFixed(1));
+            } else {
+              setAvgGrade("N/A");
+            }
+          } catch {
+            setAvgGrade("N/A");
+          }
+          
+          // Get announcements ONLY for linked students
+          try {
+            const { data: announcementsData } = await supabase
+              .from("announcements")
+              .select("*")
+              .in("student_id", studentIds)
+              .order("created_at", { ascending: false })
+              .limit(3);
+            
+            setAnnouncementsCount(announcementsData?.length || 0);
+            setRecentAnnouncements(announcementsData || []);
+          } catch {
+            setAnnouncementsCount(0);
+            setRecentAnnouncements([]);
+          }
+        } else {
+          setStudentsList([]);
+          setAvgGrade("N/A");
+          setAnnouncementsCount(0);
+          setRecentAnnouncements([]);
+        }
+        
+        setDeadlinesCount(3);
+        
+      } catch (error) {
+        console.error("Fetch error:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      // Get announcements
-      const { data: announcements } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(3);
-      
-      setAnnouncementsCount(announcements?.length || 0);
-      setRecentAnnouncements(announcements || []);
-      
-      // Get deadlines count
-      setDeadlinesCount(3);
-      
-      setLoading(false);
     }
     
     fetchParentData();
   }, [supabase, router]);
 
-  // Password change handler
-  async function handlePasswordChange() {
-    setPasswordMessage("");
-    setPasswordError("");
-    
-    if (!newPassword || !confirmPassword) {
-      setPasswordError("Please fill in all fields.");
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match.");
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
-      return;
-    }
-    
-    setPasswordLoading(true);
-    
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    
-    setPasswordLoading(false);
-    
-    if (error) {
-      setPasswordError(error.message);
-    } else {
-      setPasswordMessage("Password updated successfully!");
-      setNewPassword("");
-      setConfirmPassword("");
-      setTimeout(() => {
-        setShowPasswordModal(false);
-        setPasswordMessage("");
-      }, 2000);
-    }
-  }
-
   const initials = parent?.full_name
     ? parent.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "PR";
 
-  if (loading) {
+  // ✅ ADDED: Show redirecting message while access is denied
+  if (accessDenied) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading dashboard...</p>
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-md text-center">
+          <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+          <p className="text-yellow-800 font-medium">Redirecting to your dashboard...</p>
+          <p className="text-yellow-600 text-sm mt-2">You do not have parent access.</p>
         </div>
       </div>
     );
   }
 
-  if (!parent) {
+  if (!loading && !parent) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-md">
@@ -206,94 +217,18 @@ export default function ParentDashboard() {
         </div>
       )}
 
-      {/* Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Change Password</h2>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setPasswordError("");
-                  setPasswordMessage("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="text-sm text-slate-500 mb-6">Update your account password below.</p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">New Password</label>
-                <input
-                  type="password"
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-              </div>
-              
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Confirm New Password</label>
-                <input
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-              </div>
-              
-              {passwordError && (
-                <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{passwordError}</p>
-              )}
-              {passwordMessage && (
-                <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{passwordMessage}</p>
-              )}
-              
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setPasswordError("");
-                    setPasswordMessage("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                  }}
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePasswordChange}
-                  disabled={passwordLoading}
-                  className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {passwordLoading ? "Updating..." : "Update Password"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="p-2 bg-white rounded-xl shadow-lg"
+          title="Menu"
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
-      {/* Sidebar - Fixed on left */}
+      {/* Sidebar */}
       <aside className={`
         fixed top-0 left-0 z-40 h-full w-64 bg-slate-950 text-white transform transition-transform duration-300 ease-in-out
         lg:translate-x-0 lg:fixed
@@ -312,7 +247,6 @@ export default function ParentDashboard() {
               { name: "Announcements", href: "/dashboard/parent/announcements", icon: Bell },
               { name: "Grades", href: "/dashboard/parent/grades", icon: BookOpen },
               { name: "Profile", href: "/dashboard/parent/profile", icon: User },
-              // { name: "Settings", href: "/dashboard/parent/settings", icon: Settings },
             ].map((item) => (
               <Link
                 key={item.name}
@@ -342,38 +276,26 @@ export default function ParentDashboard() {
         </div>
       </aside>
 
-      {/* Main Content - With left margin for sidebar */}
+      {/* Main Content */}
       <div className="lg:ml-64">
-        {/* Header */}
         <header className="bg-white border-b sticky top-0 z-30">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-end">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="relative rounded-full p-2 hover:bg-slate-100 transition"
-                  title="Change Password"
-                >
-                  <Key className="h-5 w-5 text-slate-600" />
-                </button>
-                
-                <div className="flex items-center gap-3">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-sm font-medium text-slate-700">
-                      {parent?.full_name || "Parent"}
-                    </p>
-                    <p className="text-xs text-slate-500">Parent</p>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-sm font-bold text-white">
-                    {initials}
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-medium text-slate-700">
+                    {parent?.full_name || "Parent"}
+                  </p>
+                  <p className="text-xs text-slate-500">Parent</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-sm font-bold text-white">
+                  {initials}
                 </div>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Main Content Area */}
         <main className="p-6 lg:p-8">
           {/* Hero Banner */}
           <div className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 text-white shadow-xl mb-6">
@@ -381,10 +303,17 @@ export default function ParentDashboard() {
               Smart Communication Portal
             </p>
             <h1 className="mt-2 text-3xl font-bold">Parent Workspace</h1>
-            <p className="mt-2 text-white/80">
-              Welcome back, {parent.full_name}! Monitor your students' academic
-              progress, stay updated with announcements, and track grades.
-            </p>
+            {loading ? (
+              <div className="mt-2 text-white/80 flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Loading your data...</span>
+              </div>
+            ) : (
+              <p className="mt-2 text-white/80">
+                Welcome back, {parent?.full_name || "Parent"}! Monitor your students' academic
+                progress, stay updated with announcements, and track grades.
+              </p>
+            )}
           </div>
 
           {/* Stats Cards */}
@@ -395,7 +324,9 @@ export default function ParentDashboard() {
                   <Users className="h-5 w-5 text-white" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{studentsCount}</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {loading ? <span className="inline-block w-8 h-8 bg-slate-200 animate-pulse rounded"></span> : studentsCount}
+              </p>
               <p className="text-sm text-slate-600 mt-1">Total Students</p>
             </div>
 
@@ -405,7 +336,9 @@ export default function ParentDashboard() {
                   <TrendingUp className="h-5 w-5 text-white" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{avgGrade}%</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {loading ? <span className="inline-block w-12 h-8 bg-slate-200 animate-pulse rounded"></span> : `${avgGrade}%`}
+              </p>
               <p className="text-sm text-slate-600 mt-1">Average Grade</p>
             </div>
 
@@ -415,7 +348,9 @@ export default function ParentDashboard() {
                   <Bell className="h-5 w-5 text-white" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{announcementsCount}</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {loading ? <span className="inline-block w-8 h-8 bg-slate-200 animate-pulse rounded"></span> : announcementsCount}
+              </p>
               <p className="text-sm text-slate-600 mt-1">Announcements</p>
             </div>
 
@@ -430,23 +365,55 @@ export default function ParentDashboard() {
             </div>
           </div>
 
-          {/* Recent Announcements Section */}
+          {/* My Students List */}
+          {studentsList.length > 0 && !loading && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">My Students</h2>
+                  <p className="text-sm text-slate-500 mt-1">Students linked to your account</p>
+                </div>
+                <Link href="/dashboard/parent/children" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+                  View all →
+                </Link>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {studentsList.map((student) => (
+                  <div key={student.id} className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-lg">
+                      {student.full_name?.charAt(0) || "S"}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-900">{student.full_name || "Student"}</h3>
+                      <p className="text-xs text-slate-500">{student.email || "No email"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Announcements */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Recent Announcements</h2>
-                <p className="text-sm text-slate-500 mt-1">Stay updated with latest news</p>
+                <p className="text-sm text-slate-500 mt-1">Updates for your students</p>
               </div>
-              <Link 
-                href="/dashboard/parent/announcements"
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-              >
+              <Link href="/dashboard/parent/announcements" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
                 View all →
               </Link>
             </div>
-
             <div className="space-y-4">
-              {recentAnnouncements.length > 0 ? (
+              {loading ? (
+                <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+                  <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse"></div>
+                  <div className="flex-1">
+                    <div className="h-5 bg-slate-200 rounded animate-pulse w-48 mb-2"></div>
+                    <div className="h-4 bg-slate-200 rounded animate-pulse w-full"></div>
+                  </div>
+                </div>
+              ) : recentAnnouncements.length > 0 ? (
                 recentAnnouncements.map((announcement, index) => (
                   <div key={index} className="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
@@ -464,106 +431,26 @@ export default function ParentDashboard() {
               ) : (
                 <div className="text-center py-8 text-slate-500">
                   <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                  <p>No announcements yet</p>
+                  <p>No announcements for your students yet</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Upcoming Deadlines Section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Upcoming Deadlines</h2>
-                <p className="text-sm text-slate-500 mt-1">Tasks to complete</p>
-              </div>
-              <Calendar className="h-5 w-5 text-slate-400" />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100">
-                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">Mathematics Assignment</p>
-                  <p className="text-xs text-slate-600">Math</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-orange-600">Dec 10, 2024</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100">
-                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">Science Project</p>
-                  <p className="text-xs text-slate-600">Science</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-orange-600">Dec 15, 2024</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 border border-orange-100">
-                <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">English Essay</p>
-                  <p className="text-xs text-slate-600">English</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-orange-600">Dec 20, 2024</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions Section */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-sm p-6 text-white">
-              <h3 className="text-lg font-bold mb-2">Quick Actions</h3>
-              <p className="text-sm text-white/80 mb-4">Access your most used features</p>
-              <div className="space-y-2">
-                <Link 
-                  href="/dashboard/parent/children"
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition"
-                >
-                  <span>View Students</span>
-                  <span>→</span>
-                </Link>
-                <Link 
-                  href="/dashboard/parent/grades"
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition"
-                >
-                  <span>Check Grades</span>
-                  <span>→</span>
-                </Link>
-                <Link 
-                  href="/dashboard/parent/announcements"
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition"
-                >
-                  <span>View Announcements</span>
-                  <span>→</span>
-                </Link>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Key className="h-6 w-6 text-blue-600" />
-                <h3 className="text-lg font-bold text-slate-900">Password Management</h3>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">
-                Keep your account secure by updating your password regularly.
-              </p>
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
-              >
-                Change Password
-              </button>
+          {/* Quick Actions */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-sm p-6 text-white">
+            <h3 className="text-lg font-bold mb-2">Quick Actions</h3>
+            <p className="text-sm text-white/80 mb-4">Access your most used features</p>
+            <div className="space-y-2">
+              <Link href="/dashboard/parent/children" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition">
+                <span>View Students</span><span>→</span>
+              </Link>
+              <Link href="/dashboard/parent/grades" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition">
+                <span>Check Grades</span><span>→</span>
+              </Link>
+              <Link href="/dashboard/parent/announcements" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition">
+                <span>View Announcements</span><span>→</span>
+              </Link>
             </div>
           </div>
         </main>

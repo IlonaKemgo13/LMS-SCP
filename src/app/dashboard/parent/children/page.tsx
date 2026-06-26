@@ -2,114 +2,129 @@
 "use client";
 
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
-import { Menu, X, LogOut, Home, Bell, BookOpen, User, Settings, Users } from "lucide-react";
+import { Menu, X, LogOut, Home, Bell, BookOpen, User, Users, AlertCircle } from "lucide-react";
 
 export default function ChildrenPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [parentName, setParentName] = useState("");
-  const [currentUserEmail, setCurrentUserEmail] = useState("");
-  const [debug, setDebug] = useState<string>("");
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchChildrenData() {
       setLoading(true);
-      setDebug("Starting fetch...");
       
       try {
-        // Get current logged in user
-        const { data: { user } } = await supabase.auth.getUser();
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (!user) {
-          setDebug("❌ No user logged in");
-          setLoading(false);
+        if (userError || !user) {
+          router.push('/');
           return;
         }
         
-        setCurrentUserEmail(user.email || "");
-        setDebug(`✅ Logged in as: ${user.email} (ID: ${user.id})`);
-        
-        // FIRST: Get the parent profile from profiles table
-        const { data: parentData, error: parentError } = await supabase
+        // ✅ Get user role first for security check
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("*")
+          .select("role, full_name")
           .eq("id", user.id)
           .single();
         
-        if (parentError) {
-          setDebug(`❌ Parent profile error: ${parentError.message}`);
-          setLoading(false);
+        if (profileError || !profile) {
+          router.push('/');
           return;
         }
         
-        if (!parentData) {
-          setDebug("❌ No parent profile found");
-          setLoading(false);
+        // ✅ Role verification - if not parent, redirect
+        if (profile.role !== 'parent') {
+          setAccessDenied(true);
+          if (profile.role === 'student') {
+            router.push('/dashboard/student');
+          } else if (profile.role === 'admin') {
+            router.push('/dashboard/admin');
+          } else if (profile.role === 'teacher') {
+            router.push('/dashboard/teacher');
+          } else {
+            router.push('/unauthorized');
+          }
           return;
         }
         
-        setParentName(parentData.full_name);
-        setDebug(prev => prev + `\n✅ Parent found: ${parentData.full_name} (Profile ID: ${parentData.id})`);
+        setParentName(profile.full_name);
         
-        // SECOND: Get linked students using the parent's profile ID
+        // ✅ Get linked students using the parent's profile ID
         const { data: links, error: linksError } = await supabase
           .from("parent_student_links")
           .select("student_id")
-          .eq("parent_id", parentData.id);  // Use parentData.id, NOT user.id
+          .eq("parent_id", user.id);  // Use user.id since it matches profiles.id
         
         if (linksError) {
-          setDebug(prev => prev + `\n❌ Links error: ${linksError.message}`);
+          console.error("Links error:", linksError);
+          setChildren([]);
           setLoading(false);
           return;
         }
         
-        setDebug(prev => prev + `\n📊 Links found: ${links?.length || 0}`);
-        
         if (links && links.length > 0) {
           const studentIds = links.map((link) => link.student_id);
-          setDebug(prev => prev + `\n📚 Student IDs: ${studentIds.join(", ")}`);
           
-          // THIRD: Fetch student profiles
+          // ✅ Fetch student profiles
           const { data: studentsData, error: studentsError } = await supabase
             .from("profiles")
             .select("*")
             .in("id", studentIds);
           
           if (studentsError) {
-            setDebug(prev => prev + `\n❌ Students error: ${studentsError.message}`);
+            console.error("Students error:", studentsError);
+            setChildren([]);
           } else {
-            setDebug(prev => prev + `\n👨‍🎓 Students found: ${studentsData?.length || 0}`);
             setChildren(studentsData || []);
           }
         } else {
-          setDebug(prev => prev + `\n⚠️ No links found in parent_student_links table`);
+          setChildren([]);
         }
         
-      } catch (error: any) {
-        setDebug(prev => prev + `\n❌ Error: ${error.message}`);
+      } catch (error) {
         console.error("Error fetching children:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    };
+    }
     
-    fetchData();
-  }, []);
+    fetchChildrenData();
+  }, [supabase, router]);
 
   const initials = parentName
     ? parentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "PR";
+
+  // ✅ Show redirecting message while access is denied
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-md text-center">
+          <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+          <p className="text-yellow-800 font-medium">Redirecting to your dashboard...</p>
+          <p className="text-yellow-600 text-sm mt-2">You do not have parent access.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading children...</p>
+          <p className="mt-4 text-slate-600">Loading your students...</p>
         </div>
       </div>
     );
@@ -138,7 +153,7 @@ export default function ChildrenPage() {
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  window.location.href = '/';
+                  router.push('/');
                 }}
                 className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
               >
@@ -179,7 +194,6 @@ export default function ChildrenPage() {
               { name: "Announcements", href: "/dashboard/parent/announcements", icon: Bell },
               { name: "Grades", href: "/dashboard/parent/grades", icon: BookOpen },
               { name: "Profile", href: "/dashboard/parent/profile", icon: User },
-              // { name: "Settings", href: "/dashboard/parent/settings", icon: Settings },
             ].map((item) => (
               <Link
                 key={item.name}
@@ -230,27 +244,17 @@ export default function ChildrenPage() {
 
         {/* Main Content Area */}
         <main className="p-6 lg:p-8">
-          {/* Debug Info - Remove after fixing */}
-          {debug && (
-            <div className="mb-4 p-3 bg-gray-100 rounded-lg text-xs font-mono whitespace-pre-wrap">
-              <strong>Debug:</strong>
-              <pre className="mt-1">{debug}</pre>
-            </div>
-          )}
-
           {children.length === 0 ? (
             <div className="text-center py-12">
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
-                <p className="text-gray-600">No students linked to your account.</p>
+                <Users className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">No students linked to your account.</p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Logged in as: {currentUserEmail}
-                </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Debug: {debug}
+                  Please contact your school administrator to link students to your account.
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   Refresh
                 </button>
