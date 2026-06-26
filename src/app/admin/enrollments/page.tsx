@@ -4,15 +4,20 @@ import { useEffect, useMemo, useState } from "react"
 import {
   BookOpen,
   ChevronDown,
+  GraduationCap,
   Plus,
   Search,
-  X,
   Users,
-  GraduationCap,
+  X,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
-type Student = { id: string; full_name: string; email: string }
+type Student = {
+  id: string
+  full_name: string
+  email: string
+}
 
 type Course = {
   id: string
@@ -26,7 +31,10 @@ type Enrollment = {
   student_id: string
   course_id: string
   created_at: string
-  profiles: { full_name: string; email: string } | null
+  profiles: {
+    full_name: string
+    email: string
+  } | null
   courses: Course | null
 }
 
@@ -40,12 +48,48 @@ const AVATAR_COLORS = [
 ]
 
 const COURSE_COLORS = [
-  { from: "#7c3aed", to: "#a78bfa", bg: "#f5f3ff", text: "#6d28d9", ring: "#ddd6fe" },
-  { from: "#0891b2", to: "#22d3ee", bg: "#f0fdfa", text: "#0f766e", ring: "#99f6e4" },
-  { from: "#f43f5e", to: "#fb7185", bg: "#fff1f2", text: "#be123c", ring: "#fecdd3" },
-  { from: "#f59e0b", to: "#fcd34d", bg: "#fffbeb", text: "#b45309", ring: "#fde68a" },
-  { from: "#3b82f6", to: "#93c5fd", bg: "#eff6ff", text: "#1d4ed8", ring: "#bfdbfe" },
-  { from: "#10b981", to: "#6ee7b7", bg: "#f0fdf4", text: "#065f46", ring: "#a7f3d0" },
+  {
+    from: "#7c3aed",
+    to: "#a78bfa",
+    bg: "#f5f3ff",
+    text: "#6d28d9",
+    ring: "#ddd6fe",
+  },
+  {
+    from: "#0891b2",
+    to: "#22d3ee",
+    bg: "#f0fdfa",
+    text: "#0f766e",
+    ring: "#99f6e4",
+  },
+  {
+    from: "#f43f5e",
+    to: "#fb7185",
+    bg: "#fff1f2",
+    text: "#be123c",
+    ring: "#fecdd3",
+  },
+  {
+    from: "#f59e0b",
+    to: "#fcd34d",
+    bg: "#fffbeb",
+    text: "#b45309",
+    ring: "#fde68a",
+  },
+  {
+    from: "#3b82f6",
+    to: "#93c5fd",
+    bg: "#eff6ff",
+    text: "#1d4ed8",
+    ring: "#bfdbfe",
+  },
+  {
+    from: "#10b981",
+    to: "#6ee7b7",
+    bg: "#f0fdf4",
+    text: "#065f46",
+    ring: "#a7f3d0",
+  },
 ]
 
 function avatarColor(name: string) {
@@ -82,9 +126,12 @@ export default function AdminEnrollmentsPage() {
   const [studentId, setStudentId] = useState("")
   const [courseId, setCourseId] = useState("")
 
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [selectedStudent, setSelectedStudent] =
+    useState<Student | null>(null)
+
   const [studentCourses, setStudentCourses] = useState<Enrollment[]>([])
-  const [studentCoursesLoading, setStudentCoursesLoading] = useState(false)
+  const [studentCoursesLoading, setStudentCoursesLoading] =
+    useState(false)
 
   useEffect(() => {
     fetchStudents()
@@ -149,25 +196,27 @@ export default function AdminEnrollmentsPage() {
 
   async function addEnrollment() {
     if (!studentId || !courseId) {
-      alert("Please select a student and course.")
+      toast.error("Please select a student and course.")
       return
     }
 
     setSaving(true)
 
-    const { error } = await supabase.from("enrollments").insert({
-      student_id: studentId,
-      course_id: courseId,
+    const res  = await fetch("/api/admin/enrollments", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ student_id: studentId, course_id: courseId }),
     })
+    const json = await res.json()
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok) {
+      toast.error(json.error || "Failed to add enrollment.")
       setSaving(false)
       return
     }
 
+    toast.success("Student enrolled!")
     await fetchEnrollments()
-
     setSaving(false)
     closeModal()
   }
@@ -205,322 +254,171 @@ export default function AdminEnrollmentsPage() {
     setStudentCoursesLoading(false)
   }
 
-  const filteredEnrollments = useMemo(
-    () =>
-      enrollments.filter((e) => {
-        const s = searchTerm.toLowerCase()
+  const filteredEnrollments = useMemo(() => {
+    return enrollments.filter((enrollment) => {
+      const search = searchTerm.toLowerCase()
 
-        const matchSearch =
-          e.profiles?.full_name.toLowerCase().includes(s) ||
-          e.profiles?.email.toLowerCase().includes(s) ||
-          e.courses?.title.toLowerCase().includes(s) ||
-          e.courses?.code?.toLowerCase().includes(s)
+      const matchSearch =
+        enrollment.profiles?.full_name
+          .toLowerCase()
+          .includes(search) ||
+        enrollment.profiles?.email
+          .toLowerCase()
+          .includes(search) ||
+        enrollment.courses?.title
+          .toLowerCase()
+          .includes(search) ||
+        enrollment.courses?.code
+          ?.toLowerCase()
+          .includes(search)
 
-        const matchCourse =
-          selectedCourseFilter === "all" ||
-          e.courses?.title === selectedCourseFilter
+      const matchCourse =
+        selectedCourseFilter === "all" ||
+        enrollment.courses?.title === selectedCourseFilter
 
-        return matchSearch && matchCourse
-      }),
-    [enrollments, searchTerm, selectedCourseFilter]
-  )
+      return matchSearch && matchCourse
+    })
+  }, [enrollments, searchTerm, selectedCourseFilter])
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f1f2f6",
-        padding: "28px 32px",
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          borderRadius: 20,
-          background:
-            "linear-gradient(135deg, #1a1145 0%, #2d1b6e 50%, #3b2391 100%)",
-          padding: "36px 40px",
-          marginBottom: 24,
-          position: "relative",
-          overflow: "hidden",
-          boxShadow: "0 8px 32px rgba(55,20,180,0.25)",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "rgba(196,181,253,0.8)",
-            marginBottom: 8,
-          }}
-        >
+    <section className="space-y-6 px-4 pb-6 pt-20 sm:px-6 lg:px-8 lg:pt-6">
+      {/* HERO */}
+
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-6 text-white shadow-xl sm:p-8">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl" />
+
+        <div className="absolute bottom-0 right-24 h-32 w-32 rounded-full bg-indigo-500/20 blur-3xl" />
+
+        <p className="relative text-xs font-semibold uppercase tracking-widest text-white/70 sm:text-sm">
           Admin Workspace
         </p>
 
-        <h1
-          style={{
-            fontSize: 32,
-            fontWeight: 800,
-            color: "#fff",
-            margin: 0,
-            lineHeight: 1.2,
-          }}
-        >
+        <h1 className="relative mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">
           Enrollment Management
         </h1>
 
-        <p
-          style={{
-            fontSize: 14,
-            color: "rgba(196,181,253,0.7)",
-            marginTop: 8,
-            marginBottom: 0,
-          }}
-        >
+        <p className="relative mt-3 max-w-2xl text-sm text-white/80 sm:text-base">
           Enroll students into courses and monitor course participation.
         </p>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        {[
-          {
-            label: "Students",
-            value: students.length,
-            bar: "linear-gradient(90deg, #7c3aed, #a78bfa)",
-            icon: <Users style={{ width: 20, height: 20, color: "#7c3aed" }} />,
-          },
-          {
-            label: "Courses",
-            value: courses.length,
-            bar: "linear-gradient(90deg, #0891b2, #22d3ee)",
-            icon: <BookOpen style={{ width: 20, height: 20, color: "#0891b2" }} />,
-          },
-          {
-            label: "Enrollments",
-            value: enrollments.length,
-            bar: "linear-gradient(90deg, #10b981, #6ee7b7)",
-            icon: (
-              <GraduationCap
-                style={{ width: 20, height: 20, color: "#10b981" }}
-              />
-            ),
-          },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: "20px 20px 18px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 5,
-                background: stat.bar,
-              }}
-            />
+      {/* STATS */}
 
-            <p
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "#94a3b8",
-                margin: "4px 0 8px",
-              }}
-            >
-              {stat.label}
-            </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="Students"
+          value={students.length}
+          icon={<Users className="h-5 w-5 text-violet-600" />}
+          bar="from-violet-600 to-violet-300"
+        />
 
-            <p
-              style={{
-                fontSize: 40,
-                fontWeight: 900,
-                color: "#0f172a",
-                margin: 0,
-                lineHeight: 1,
-              }}
-            >
-              {stat.value}
-            </p>
-          </div>
-        ))}
+        <StatCard
+          label="Courses"
+          value={courses.length}
+          icon={<BookOpen className="h-5 w-5 text-cyan-600" />}
+          bar="from-cyan-500 to-cyan-300"
+        />
+
+        <StatCard
+          label="Enrollments"
+          value={enrollments.length}
+          icon={
+            <GraduationCap className="h-5 w-5 text-emerald-600" />
+          }
+          bar="from-emerald-500 to-emerald-300"
+        />
       </div>
 
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 20,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "20px 24px",
-            borderBottom: "1px solid #f1f5f9",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
+      {/* TABLE CARD */}
+
+      <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
+        {/* TOOLBAR */}
+
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#0f172a",
-                margin: 0,
-              }}
-            >
+            <h2 className="text-xl font-bold text-slate-900">
               Student Enrollments
             </h2>
 
-            <p style={{ fontSize: 13, color: "#94a3b8", margin: "2px 0 0" }}>
+            <p className="mt-1 text-sm text-slate-400">
               {loading
-                ? "Loading…"
+                ? "Loading..."
                 : `${filteredEnrollments.length} enrollment${
                     filteredEnrollments.length !== 1 ? "s" : ""
                   } found`}
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ position: "relative" }}>
-              <Search
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 15,
-                  height: 15,
-                  color: "#94a3b8",
-                  pointerEvents: "none",
-                }}
-              />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            {/* SEARCH */}
+
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
               <input
                 type="text"
-                placeholder="Search student, email, course…"
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  height: 40,
-                  width: 240,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#f8fafc",
-                  paddingLeft: 36,
-                  paddingRight: 12,
-                  fontSize: 13,
-                  color: "#334155",
-                  outline: "none",
-                }}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-violet-500 sm:w-64"
               />
             </div>
 
-            <div style={{ position: "relative" }}>
+            {/* FILTER */}
+
+            <div className="relative">
               <select
                 value={selectedCourseFilter}
-                onChange={(e) => setSelectedCourseFilter(e.target.value)}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#f8fafc",
-                  padding: "0 32px 0 12px",
-                  fontSize: 13,
-                  color: "#334155",
-                  appearance: "none",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
+                onChange={(e) =>
+                  setSelectedCourseFilter(e.target.value)
+                }
+                className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-violet-500 sm:w-48"
               >
                 <option value="all">All Courses</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.title}>
-                    {c.title}
+
+                {courses.map((course) => (
+                  <option
+                    key={course.id}
+                    value={course.title}
+                  >
+                    {course.title}
                   </option>
                 ))}
               </select>
 
-              <ChevronDown
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 14,
-                  height: 14,
-                  color: "#94a3b8",
-                  pointerEvents: "none",
-                }}
-              />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
+
+            {/* BUTTON */}
 
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              style={{
-                height: 40,
-                borderRadius: 12,
-                border: "none",
-                background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 13,
-                padding: "0 18px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
-              }}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-semibold text-white transition hover:bg-violet-800"
             >
-              <Plus style={{ width: 15, height: 15 }} />
+              <Plus className="h-4 w-4" />
               Enroll Student
             </button>
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                {["STUDENT", "COURSE", "COURSE CODE", "ENROLLED DATE"].map((h) => (
+        {/* TABLE */}
+
+        <div className="overflow-x-auto">
+          <table className="min-w-[900px] border-collapse md:min-w-full">
+            <thead className="bg-slate-50">
+              <tr>
+                {[
+                  "STUDENT",
+                  "COURSE",
+                  "COURSE CODE",
+                  "ENROLLED DATE",
+                ].map((heading) => (
                   <th
-                    key={h}
-                    style={{
-                      padding: "12px 20px",
-                      textAlign: "left",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      color: "#94a3b8",
-                    }}
+                    key={heading}
+                    className="px-5 py-4 text-left text-xs font-bold tracking-widest text-slate-400"
                   >
-                    {h}
+                    {heading}
                   </th>
                 ))}
               </tr>
@@ -529,81 +427,84 @@ export default function AdminEnrollmentsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: "60px 20px", textAlign: "center" }}>
-                    Loading enrollments…
+                  <td
+                    colSpan={4}
+                    className="px-5 py-16 text-center text-sm text-slate-400"
+                  >
+                    Loading enrollments...
                   </td>
                 </tr>
               ) : filteredEnrollments.length > 0 ? (
-                filteredEnrollments.map((enrollment, idx) => {
-                  const name = enrollment.profiles?.full_name || "Unknown"
-                  const email = enrollment.profiles?.email || "—"
-                  const courseTitle = enrollment.courses?.title || "Unknown"
-                  const av = avatarColor(name)
-                  const cc = courseColor(courseTitle)
+                filteredEnrollments.map((enrollment) => {
+                  const studentName =
+                    enrollment.profiles?.full_name || "Unknown"
+
+                  const studentEmail =
+                    enrollment.profiles?.email || "—"
+
+                  const courseTitle =
+                    enrollment.courses?.title || "Unknown"
+
+                  const avatar = avatarColor(studentName)
+
+                  const courseTheme = courseColor(courseTitle)
 
                   return (
                     <tr
                       key={enrollment.id}
                       onClick={() => {
                         const student = students.find(
-                          (s) => s.id === enrollment.student_id
+                          (s) =>
+                            s.id === enrollment.student_id
                         )
 
-                        if (student) openStudentCourses(student)
+                        if (student) {
+                          openStudentCourses(student)
+                        }
                       }}
-                      style={{
-                        cursor: "pointer",
-                        borderBottom:
-                          idx < filteredEnrollments.length - 1
-                            ? "1px solid #f8fafc"
-                            : "none",
-                      }}
+                      className="cursor-pointer border-t border-slate-100 transition hover:bg-slate-50"
                     >
-                      <td style={{ padding: "14px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {/* STUDENT */}
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
                           <div
+                            className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold text-white"
                             style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              background: `linear-gradient(135deg, ${av.from}, ${av.to})`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#fff",
-                              fontWeight: 800,
-                              fontSize: 12,
+                              background: `linear-gradient(135deg, ${avatar.from}, ${avatar.to})`,
                             }}
                           >
-                            {initials(name)}
+                            {initials(studentName)}
                           </div>
 
                           <div>
-                            <p style={{ margin: 0, fontWeight: 600, color: "#0f172a" }}>
-                              {name}
+                            <p className="font-semibold text-slate-900">
+                              {studentName}
                             </p>
-                            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>
-                              {email}
+
+                            <p className="text-xs text-slate-400">
+                              {studentEmail}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td style={{ padding: "14px 20px", fontWeight: 500 }}>
+                      {/* COURSE */}
+
+                      <td className="px-5 py-4 font-medium text-slate-700">
                         {courseTitle}
                       </td>
 
-                      <td style={{ padding: "14px 20px" }}>
+                      {/* CODE */}
+
+                      <td className="px-5 py-4">
                         {enrollment.courses?.code ? (
                           <span
+                            className="rounded-lg px-3 py-1 text-xs font-bold"
                             style={{
-                              borderRadius: 8,
-                              padding: "3px 10px",
-                              background: cc.bg,
-                              color: cc.text,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              boxShadow: `0 0 0 1px ${cc.ring}`,
+                              background: courseTheme.bg,
+                              color: courseTheme.text,
+                              boxShadow: `0 0 0 1px ${courseTheme.ring}`,
                             }}
                           >
                             {enrollment.courses.code}
@@ -613,22 +514,22 @@ export default function AdminEnrollmentsPage() {
                         )}
                       </td>
 
-                      <td style={{ padding: "14px 20px", color: "#94a3b8" }}>
-                        {new Date(enrollment.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
+                      {/* DATE */}
+
+                      <td className="px-5 py-4 text-sm text-slate-400">
+                        {new Date(
+                          enrollment.created_at
+                        ).toLocaleDateString()}
                       </td>
                     </tr>
                   )
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} style={{ padding: "60px 20px", textAlign: "center" }}>
+                  <td
+                    colSpan={4}
+                    className="px-5 py-16 text-center text-sm text-slate-400"
+                  >
                     No enrollments found.
                   </td>
                 </tr>
@@ -638,85 +539,41 @@ export default function AdminEnrollmentsPage() {
         </div>
       </div>
 
-      {showModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            background: "rgba(15,23,42,0.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              background: "#fff",
-              borderRadius: 20,
-              overflow: "hidden",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
-            }}
-          >
-            <div
-              style={{
-                height: 5,
-                background: "linear-gradient(90deg, #7c3aed, #a78bfa, #6366f1)",
-              }}
-            />
+      {/* ENROLL MODAL */}
 
-            <div
-              style={{
-                padding: "24px 24px 0",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
+      {showModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl">
+            <div className="h-1.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400" />
+
+            <div className="flex items-start justify-between p-6">
               <div>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                <h2 className="text-xl font-bold text-slate-900">
                   Enroll Student
                 </h2>
 
-                <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 0" }}>
+                <p className="mt-1 text-sm text-slate-400">
                   Select a student and assign them to a course.
                 </p>
               </div>
 
               <button
                 onClick={closeModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 6,
-                  borderRadius: 8,
-                  color: "#94a3b8",
-                }}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100"
               >
-                <X style={{ width: 18, height: 18 }} />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div
-              style={{
-                padding: "20px 24px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
+            <div className="space-y-4 px-6 pb-6">
               <ModalSelect
                 label="Student"
                 value={studentId}
                 onChange={setStudentId}
                 placeholder="Select student"
-                options={students.map((s) => ({
-                  value: s.id,
-                  label: `${s.full_name} (${s.email})`,
+                options={students.map((student) => ({
+                  value: student.id,
+                  label: `${student.full_name} (${student.email})`,
                 }))}
               />
 
@@ -725,112 +582,57 @@ export default function AdminEnrollmentsPage() {
                 value={courseId}
                 onChange={setCourseId}
                 placeholder="Select course"
-                options={courses.map((c) => ({
-                  value: c.id,
-                  label: `${c.title}${c.code ? ` — ${c.code}` : ""}`,
+                options={courses.map((course) => ({
+                  value: course.id,
+                  label: `${course.title}${
+                    course.code
+                      ? ` — ${course.code}`
+                      : ""
+                  }`,
                 }))}
               />
-            </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-                padding: "14px 24px 20px",
-                borderTop: "1px solid #f1f5f9",
-              }}
-            >
-              <button
-                onClick={closeModal}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "1.5px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#475569",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  padding: "0 18px",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                <button
+                  onClick={closeModal}
+                  className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
 
-              <button
-                onClick={addEnrollment}
-                disabled={saving}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: "none",
-                  background: saving
-                    ? "#a78bfa"
-                    : "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  padding: "0 20px",
-                  cursor: saving ? "not-allowed" : "pointer",
-                }}
-              >
-                {saving ? "Saving…" : "Save Enrollment"}
-              </button>
+                <button
+                  onClick={addEnrollment}
+                  disabled={saving}
+                  className="h-11 flex-1 rounded-xl bg-violet-700 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:opacity-60"
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Save Enrollment"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {selectedStudent && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            background: "rgba(15,23,42,0.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 620,
-              background: "#fff",
-              borderRadius: 20,
-              overflow: "hidden",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
-            }}
-          >
-            <div
-              style={{
-                height: 5,
-                background: "linear-gradient(90deg, #7c3aed, #a78bfa, #6366f1)",
-              }}
-            />
+      {/* STUDENT COURSES MODAL */}
 
-            <div
-              style={{
-                padding: 24,
-                display: "flex",
-                justifyContent: "space-between",
-                borderBottom: "1px solid #f1f5f9",
-              }}
-            >
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+            <div className="h-1.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400" />
+
+            <div className="flex items-start justify-between border-b border-slate-100 p-6">
               <div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                <h2 className="text-2xl font-bold text-slate-900">
                   {selectedStudent.full_name}
                 </h2>
 
-                <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
+                <p className="mt-1 text-sm text-slate-500">
                   {selectedStudent.email}
                 </p>
 
-                <p style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 0" }}>
+                <p className="mt-3 text-sm text-slate-400">
                   Enrolled Courses
                 </p>
               </div>
@@ -840,102 +642,69 @@ export default function AdminEnrollmentsPage() {
                   setSelectedStudent(null)
                   setStudentCourses([])
                 }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 6,
-                  borderRadius: 8,
-                  color: "#94a3b8",
-                }}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100"
               >
-                <X style={{ width: 18, height: 18 }} />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div style={{ padding: 24 }}>
+            <div className="space-y-4 p-6">
               {studentCoursesLoading ? (
-                <p style={{ color: "#94a3b8", fontSize: 13 }}>Loading courses...</p>
+                <p className="text-sm text-slate-400">
+                  Loading courses...
+                </p>
               ) : studentCourses.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {studentCourses.map((item) => {
-                    const title = item.courses?.title || "Unknown Course"
-                    const color = courseColor(title)
+                studentCourses.map((courseItem) => {
+                  const title =
+                    courseItem.courses?.title ||
+                    "Unknown Course"
 
-                    return (
+                  const courseTheme =
+                    courseColor(title)
+
+                  return (
+                    <div
+                      key={courseItem.id}
+                      className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-5 sm:flex-row sm:items-center"
+                    >
                       <div
-                        key={item.id}
+                        className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white"
                         style={{
-                          border: "1.5px solid #f1f5f9",
-                          borderRadius: 16,
-                          padding: 16,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          background: "#f8fafc",
+                          background: `linear-gradient(135deg, ${courseTheme.from}, ${courseTheme.to})`,
                         }}
                       >
-                        <div
+                        {initials(title)}
+                      </div>
+
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900">
+                          {title}
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          {courseItem.courses
+                            ?.description ||
+                            "No course description."}
+                        </p>
+                      </div>
+
+                      {courseItem.courses?.code && (
+                        <span
+                          className="rounded-lg px-3 py-1 text-xs font-bold"
                           style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 12,
-                            background: `linear-gradient(135deg, ${color.from}, ${color.to})`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#fff",
-                            fontWeight: 800,
-                            fontSize: 12,
+                            background: courseTheme.bg,
+                            color: courseTheme.text,
+                            boxShadow: `0 0 0 1px ${courseTheme.ring}`,
                           }}
                         >
-                          {initials(title)}
-                        </div>
-
-                        <div style={{ flex: 1 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: 700,
-                              color: "#0f172a",
-                              fontSize: 14,
-                            }}
-                          >
-                            {title}
-                          </p>
-
-                          <p
-                            style={{
-                              margin: "3px 0 0",
-                              color: "#64748b",
-                              fontSize: 12,
-                            }}
-                          >
-                            {item.courses?.description || "No course description."}
-                          </p>
-                        </div>
-
-                        {item.courses?.code && (
-                          <span
-                            style={{
-                              borderRadius: 8,
-                              padding: "4px 10px",
-                              background: color.bg,
-                              color: color.text,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              boxShadow: `0 0 0 1px ${color.ring}`,
-                            }}
-                          >
-                            {item.courses.code}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                          {courseItem.courses.code}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })
               ) : (
-                <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                <p className="text-sm text-slate-400">
                   This student is not enrolled in any course yet.
                 </p>
               )}
@@ -943,8 +712,40 @@ export default function AdminEnrollmentsPage() {
           </div>
         </div>
       )}
+    </section>
+  )
+}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+function StatCard({
+  label,
+  value,
+  icon,
+  bar,
+}: {
+  label: string
+  value: number
+  icon: React.ReactNode
+  bar: string
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
+      <div
+        className={`absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r ${bar}`}
+      />
+
+      <div className="mt-2 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          {label}
+        </p>
+
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50">
+          {icon}
+        </div>
+      </div>
+
+      <h2 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+        {value}
+      </h2>
     </div>
   )
 }
@@ -958,62 +759,42 @@ function ModalSelect({
 }: {
   label: string
   value: string
-  onChange: (v: string) => void
+  onChange: (value: string) => void
   placeholder: string
-  options: { value: string; label: string }[]
+  options: {
+    value: string
+    label: string
+  }[]
 }) {
   return (
     <div>
-      <label
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#374151",
-          display: "block",
-          marginBottom: 6,
-        }}
-      >
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
         {label}
       </label>
 
-      <div style={{ position: "relative" }}>
+      <div className="relative">
         <select
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          style={{
-            width: "100%",
-            height: 44,
-            borderRadius: 12,
-            border: "1.5px solid #e2e8f0",
-            background: "#f8fafc",
-            padding: "0 36px 0 14px",
-            fontSize: 13,
-            color: value ? "#334155" : "#94a3b8",
-            appearance: "none",
-            outline: "none",
-            boxSizing: "border-box",
-          }}
+          onChange={(e) =>
+            onChange(e.target.value)
+          }
+          className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-violet-500"
         >
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          <option value="">
+            {placeholder}
+          </option>
+
+          {options.map((option) => (
+            <option
+              key={option.value}
+              value={option.value}
+            >
+              {option.label}
             </option>
           ))}
         </select>
 
-        <ChevronDown
-          style={{
-            position: "absolute",
-            right: 12,
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: 14,
-            height: 14,
-            color: "#94a3b8",
-            pointerEvents: "none",
-          }}
-        />
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       </div>
     </div>
   )

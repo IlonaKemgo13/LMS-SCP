@@ -1,7 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, Megaphone, Plus, Search, X, Bell, Clock, Users } from "lucide-react"
+import {
+  Bell,
+  ChevronDown,
+  Clock,
+  Megaphone,
+  Plus,
+  Search,
+  Users,
+  X,
+} from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type Announcement = {
@@ -14,272 +24,352 @@ type Announcement = {
   target_role: string | null
 }
 
-/* ─── Target meta ────────────────────────────────────────── */
-const TARGET_META: Record<string, { label: string; bg: string; text: string; ring: string; dot: string; bar: string }> = {
-  all:     { label: "Everyone", bg: "#f1f5f9", text: "#475569", ring: "#e2e8f0", dot: "#94a3b8", bar: "linear-gradient(90deg, #7c3aed, #a78bfa)" },
-  teacher: { label: "Teachers", bg: "#f5f3ff", text: "#6d28d9", ring: "#ddd6fe", dot: "#7c3aed", bar: "linear-gradient(90deg, #7c3aed, #a78bfa)" },
-  student: { label: "Students", bg: "#f0fdfa", text: "#0f766e", ring: "#99f6e4", dot: "#0891b2", bar: "linear-gradient(90deg, #0891b2, #22d3ee)" },
-  parent:  { label: "Parents",  bg: "#fffbeb", text: "#b45309", ring: "#fde68a", dot: "#f59e0b", bar: "linear-gradient(90deg, #f59e0b, #fcd34d)" },
+const TARGET_META: Record<
+  string,
+  {
+    label: string
+    bg: string
+    text: string
+    ring: string
+    dot: string
+  }
+> = {
+  all: {
+    label: "Everyone",
+    bg: "#f1f5f9",
+    text: "#475569",
+    ring: "#e2e8f0",
+    dot: "#94a3b8",
+  },
+  teacher: {
+    label: "Teachers",
+    bg: "#f5f3ff",
+    text: "#6d28d9",
+    ring: "#ddd6fe",
+    dot: "#7c3aed",
+  },
+  student: {
+    label: "Students",
+    bg: "#f0fdfa",
+    text: "#0f766e",
+    ring: "#99f6e4",
+    dot: "#0891b2",
+  },
+  parent: {
+    label: "Parents",
+    bg: "#fffbeb",
+    text: "#b45309",
+    ring: "#fde68a",
+    dot: "#f59e0b",
+  },
 }
 
 const ANNOUNCEMENT_COLORS = [
-  { from: "#7c3aed", to: "#4f46e5", light: "#f5f3ff" },
-  { from: "#0891b2", to: "#0d9488", light: "#f0fdfa" },
-  { from: "#f43f5e", to: "#db2777", light: "#fff1f2" },
-  { from: "#f59e0b", to: "#ea580c", light: "#fffbeb" },
-  { from: "#3b82f6", to: "#6366f1", light: "#eff6ff" },
-  { from: "#10b981", to: "#0891b2", light: "#f0fdf4" },
+  { from: "#7c3aed", to: "#4f46e5" },
+  { from: "#0891b2", to: "#0d9488" },
+  { from: "#f43f5e", to: "#db2777" },
+  { from: "#f59e0b", to: "#ea580c" },
+  { from: "#3b82f6", to: "#6366f1" },
+  { from: "#10b981", to: "#0891b2" },
 ]
+
 function annColor(title: string) {
   return ANNOUNCEMENT_COLORS[title.charCodeAt(0) % ANNOUNCEMENT_COLORS.length]
 }
 
-/* ─── Page ───────────────────────────────────────────────── */
 export default function AdminAnnouncementsPage() {
   const supabase = createClient()
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [saving, setSaving]     = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const [searchTerm, setSearchTerm]   = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
   const [targetFilter, setTargetFilter] = useState("all")
 
-  const [title, setTitle]       = useState("")
-  const [content, setContent]   = useState("")
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
   const [deadline, setDeadline] = useState("")
   const [targetRole, setTargetRole] = useState("all")
 
-  useEffect(() => { fetchAnnouncements() }, [])
+  useEffect(() => {
+    fetchAnnouncements()
+  }, [])
 
   async function fetchAnnouncements() {
     setLoading(true)
+
     const { data, error } = await supabase
       .from("announcements")
       .select("id, title, content, deadline, created_at, is_global, target_role")
       .eq("is_global", true)
       .order("created_at", { ascending: false })
-    if (!error && data) setAnnouncements(data)
+
+    if (!error && data) {
+      setAnnouncements(data)
+    }
+
     setLoading(false)
   }
 
   function closeModal() {
-    setTitle(""); setContent(""); setDeadline(""); setTargetRole("all")
+    setTitle("")
+    setContent("")
+    setDeadline("")
+    setTargetRole("all")
     setShowModal(false)
   }
 
   async function addAnnouncement() {
-    if (!title || !content) { alert("Please enter title and message."); return }
+    if (!title || !content) {
+      toast.error("Please enter title and message.")
+      return
+    }
+
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error } = await supabase.from("announcements").insert({
-      title, content, deadline: deadline || null,
-      created_by: user?.id || null, is_global: true,
-      target_role: targetRole, course_id: null, teacher_id: null,
+
+    const res  = await fetch("/api/admin/announcements", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        title,
+        content,
+        deadline:    deadline    || undefined,
+        target_role: targetRole,
+        is_global:   true,
+      }),
     })
-    if (error) { alert(error.message); setSaving(false); return }
+    const json = await res.json()
+
+    if (!res.ok) {
+      toast.error(json.error || "Failed to publish announcement.")
+      setSaving(false)
+      return
+    }
+
+    toast.success("Announcement published!")
     await fetchAnnouncements()
     setSaving(false)
     closeModal()
   }
 
-  const filteredAnnouncements = useMemo(() =>
-    announcements.filter(a => {
-      const s = searchTerm.toLowerCase()
-      return (a.title.toLowerCase().includes(s) || a.content.toLowerCase().includes(s))
-        && (targetFilter === "all" || a.target_role === targetFilter)
-    }),
-    [announcements, searchTerm, targetFilter]
-  )
+  const filteredAnnouncements = useMemo(() => {
+    const search = searchTerm.toLowerCase()
+
+    return announcements.filter((announcement) => {
+      return (
+        (announcement.title.toLowerCase().includes(search) ||
+          announcement.content.toLowerCase().includes(search)) &&
+        (targetFilter === "all" || announcement.target_role === targetFilter)
+      )
+    })
+  }, [announcements, searchTerm, targetFilter])
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f1f2f6", padding: "28px 32px", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <section className="w-full space-y-6 px-4 pb-6 pt-20 sm:px-6 lg:px-8 lg:pt-6">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-purple-900 p-5 text-white shadow-xl sm:p-8">
+        <div className="pointer-events-none absolute -right-10 -top-16 h-52 w-52 rounded-full bg-violet-400/30 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 right-28 h-40 w-40 rounded-full bg-indigo-400/20 blur-3xl" />
 
-      {/* ── Hero banner ── */}
-      <div style={{
-           borderRadius: 20,
-        background: "linear-gradient(135deg, #1a1145 0%, #2d1b6e 50%, #3b2391 100%)",
-        padding: "36px 40px",
-        marginBottom: 24,
-        position: "relative",
-        overflow: "hidden",
-        boxShadow: "0 8px 32px rgba(55,20,180,0.25)",
-      }}>
-        <div style={{ position: "absolute", right: 60, top: -20, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.35) 0%, transparent 70%)", filter: "blur(30px)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", right: 180, bottom: -30, width: 150, height: 150, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)", filter: "blur(24px)", pointerEvents: "none" }} />
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(196,181,253,0.8)", marginBottom: 8 }}>
+        <p className="relative text-xs font-semibold uppercase tracking-widest text-white/70 sm:text-sm">
           Admin Workspace
         </p>
-        <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.2 }}>Global Announcements</h1>
-        <p style={{ fontSize: 14, color: "rgba(196,181,253,0.7)", marginTop: 8, marginBottom: 0 }}>
-          Publish important school-wide announcements for students, teachers, parents, or everyone.
+
+        <h1 className="relative mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">
+          Global Announcements
+        </h1>
+
+        <p className="relative mt-3 max-w-2xl text-sm text-white/80 sm:text-base">
+          Publish important school-wide announcements for students, teachers,
+          parents, or everyone.
         </p>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-        {[
-          { label: "Global Notices", value: announcements.length,                               bar: "linear-gradient(90deg, #7c3aed, #a78bfa)", icon: <Bell style={{ width: 20, height: 20, color: "#7c3aed" }} /> },
-          { label: "For Everyone",   value: announcements.filter(a => a.target_role === "all").length, bar: "linear-gradient(90deg, #3b82f6, #6366f1)", icon: <Users style={{ width: 20, height: 20, color: "#3b82f6" }} /> },
-          { label: "With Deadlines", value: announcements.filter(a => a.deadline).length,        bar: "linear-gradient(90deg, #f59e0b, #fcd34d)", icon: <Clock style={{ width: 20, height: 20, color: "#f59e0b" }} /> },
-        ].map(stat => (
-          <div key={stat.label} style={{ background: "#fff", borderRadius: 16, padding: "20px 20px 18px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: stat.bar, borderRadius: "16px 16px 0 0" }} />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 4 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#94a3b8", margin: 0 }}>{stat.label}</p>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>{stat.icon}</div>
-            </div>
-            <p style={{ fontSize: 40, fontWeight: 900, color: "#0f172a", margin: 0, lineHeight: 1 }}>{stat.value}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="Global Notices"
+          value={announcements.length}
+          icon={<Bell className="h-5 w-5 text-violet-600" />}
+          bar="from-violet-600 to-violet-300"
+        />
+
+        <StatCard
+          label="For Everyone"
+          value={announcements.filter((a) => a.target_role === "all").length}
+          icon={<Users className="h-5 w-5 text-blue-600" />}
+          bar="from-blue-500 to-indigo-500"
+        />
+
+        <StatCard
+          label="With Deadlines"
+          value={announcements.filter((a) => a.deadline).length}
+          icon={<Clock className="h-5 w-5 text-amber-500" />}
+          bar="from-amber-500 to-yellow-300"
+        />
       </div>
 
-      {/* ── Table card ── */}
-      <div style={{ background: "#fff", borderRadius: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.07)", overflow: "hidden" }}>
-
-        {/* toolbar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap", gap: 12 }}>
+      <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>Announcements</h2>
-            <p style={{ fontSize: 13, color: "#94a3b8", margin: "2px 0 0" }}>
-              {loading ? "Loading…" : `${filteredAnnouncements.length} announcement${filteredAnnouncements.length !== 1 ? "s" : ""} found`}
+            <h2 className="text-xl font-bold text-slate-900">
+              Announcements
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-400">
+              {loading
+                ? "Loading..."
+                : `${filteredAnnouncements.length} announcement${
+                    filteredAnnouncements.length !== 1 ? "s" : ""
+                  } found`}
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* search */}
-            <div style={{ position: "relative" }}>
-              <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 15, height: 15, color: "#94a3b8", pointerEvents: "none" }} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
               <input
                 type="text"
-                placeholder="Search announcements…"
+                placeholder="Search announcements..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ height: 40, width: 230, borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#f8fafc", paddingLeft: 36, paddingRight: 12, fontSize: 13, color: "#334155", outline: "none" }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-violet-500 sm:w-64"
               />
             </div>
 
-            {/* target filter */}
-            <div style={{ position: "relative" }}>
+            <div className="relative">
               <select
                 value={targetFilter}
-                onChange={e => setTargetFilter(e.target.value)}
-                style={{ height: 40, borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#f8fafc", padding: "0 32px 0 12px", fontSize: 13, color: "#334155", appearance: "none", outline: "none", cursor: "pointer" }}
+                onChange={(e) => setTargetFilter(e.target.value)}
+                className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-violet-500 sm:w-44"
               >
                 <option value="all">All Targets</option>
                 <option value="teacher">Teachers</option>
                 <option value="student">Students</option>
                 <option value="parent">Parents</option>
               </select>
-              <ChevronDown style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#94a3b8", pointerEvents: "none" }} />
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
 
-            {/* add button */}
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              style={{ height: 40, borderRadius: 12, border: "none", background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff", fontWeight: 600, fontSize: 13, padding: "0 18px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 8px rgba(124,58,237,0.35)" }}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 text-sm font-semibold text-white transition hover:bg-violet-800"
             >
-              <Plus style={{ width: 15, height: 15 }} />
+              <Plus className="h-4 w-4" />
               Add Announcement
             </button>
           </div>
         </div>
 
-        {/* table */}
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                {["ANNOUNCEMENT", "TARGET", "DEADLINE", "CREATED"].map(h => (
-                  <th key={h} style={{ padding: "12px 20px", textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#94a3b8" }}>{h}</th>
-                ))}
+        <div className="overflow-x-auto">
+          <table className="min-w-[850px] border-collapse md:min-w-full">
+            <thead className="bg-slate-50">
+              <tr>
+                {["ANNOUNCEMENT", "TARGET", "DEADLINE", "CREATED"].map(
+                  (heading) => (
+                    <th
+                      key={heading}
+                      className="px-5 py-4 text-left text-xs font-bold tracking-widest text-slate-400"
+                    >
+                      {heading}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: "60px 20px", textAlign: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #ede9fe", borderTopColor: "#7c3aed", animation: "spin 0.7s linear infinite" }} />
-                      <span style={{ color: "#94a3b8", fontSize: 13 }}>Loading announcements…</span>
-                    </div>
+                  <td
+                    colSpan={4}
+                    className="px-5 py-16 text-center text-sm text-slate-400"
+                  >
+                    Loading announcements...
                   </td>
                 </tr>
               ) : filteredAnnouncements.length > 0 ? (
-                filteredAnnouncements.map((ann, idx) => {
-                  const col = annColor(ann.title)
-                  const target = ann.target_role || "all"
-                  const tm = TARGET_META[target] || TARGET_META.all
-                  const hasDeadline = !!ann.deadline
-                  const isPast = hasDeadline && new Date(ann.deadline!) < new Date()
+                filteredAnnouncements.map((announcement) => {
+                  const color = annColor(announcement.title)
+                  const target = announcement.target_role || "all"
+                  const meta = TARGET_META[target] || TARGET_META.all
+                  const hasDeadline = Boolean(announcement.deadline)
+                  const isPast =
+                    hasDeadline &&
+                    new Date(announcement.deadline!) < new Date()
+
                   return (
                     <tr
-                      key={ann.id}
-                      style={{ borderBottom: idx < filteredAnnouncements.length - 1 ? "1px solid #f8fafc" : "none" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#fafafa")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      key={announcement.id}
+                      className="border-t border-slate-100 transition hover:bg-slate-50"
                     >
-                      {/* announcement */}
-                      <td style={{ padding: "14px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                          <div style={{
-                            width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                            background: `linear-gradient(135deg, ${col.from}, ${col.to})`,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            boxShadow: `0 2px 8px ${col.from}55`,
-                          }}>
-                            <Megaphone style={{ width: 18, height: 18, color: "#fff" }} />
+                      <td className="px-5 py-4">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
+                            style={{
+                              background: `linear-gradient(135deg, ${color.from}, ${color.to})`,
+                            }}
+                          >
+                            <Megaphone className="h-5 w-5" />
                           </div>
+
                           <div>
-                            <p style={{ fontWeight: 600, color: "#0f172a", margin: 0 }}>{ann.title}</p>
-                            <p style={{ fontSize: 12, color: "#94a3b8", margin: "3px 0 0", maxWidth: 400, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                              {ann.content}
+                            <p className="font-semibold text-slate-900">
+                              {announcement.title}
+                            </p>
+
+                            <p className="mt-1 line-clamp-2 max-w-md text-sm leading-relaxed text-slate-400">
+                              {announcement.content}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      {/* target badge */}
-                      <td style={{ padding: "14px 20px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, padding: "3px 10px", fontSize: 12, fontWeight: 600, background: tm.bg, color: tm.text, boxShadow: `0 0 0 1px ${tm.ring}` }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: tm.dot, flexShrink: 0 }} />
-                          {tm.label}
-                        </span>
+                      <td className="px-5 py-4">
+                        <TargetBadge meta={meta} />
                       </td>
 
-                      {/* deadline */}
-                      <td style={{ padding: "14px 20px" }}>
+                      <td className="px-5 py-4">
                         {hasDeadline ? (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600,
-                            background: isPast ? "#fff1f2" : "#f0fdf4",
-                            color: isPast ? "#be123c" : "#065f46",
-                            boxShadow: `0 0 0 1px ${isPast ? "#fecdd3" : "#a7f3d0"}`,
-                          }}>
-                            <Clock style={{ width: 11, height: 11 }} />
-                            {new Date(ann.deadline!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold ${
+                              isPast
+                                ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                                : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                            }`}
+                          >
+                            <Clock className="h-3 w-3" />
+                            {new Date(
+                              announcement.deadline!
+                            ).toLocaleDateString()}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 13, color: "#cbd5e1" }}>No deadline</span>
+                          <span className="text-sm text-slate-300">
+                            No deadline
+                          </span>
                         )}
                       </td>
 
-                      {/* created */}
-                      <td style={{ padding: "14px 20px", color: "#94a3b8", fontSize: 13 }}>
-                        {new Date(ann.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      <td className="px-5 py-4 text-sm text-slate-400">
+                        {new Date(
+                          announcement.created_at
+                        ).toLocaleDateString()}
                       </td>
                     </tr>
                   )
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} style={{ padding: "60px 20px", textAlign: "center" }}>
-                    <Megaphone style={{ width: 40, height: 40, color: "#e2e8f0", margin: "0 auto 12px" }} />
-                    <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>No announcements found.</p>
+                  <td colSpan={4} className="px-5 py-16 text-center">
+                    <Megaphone className="mx-auto mb-4 h-10 w-10 text-slate-200" />
+
+                    <p className="text-sm text-slate-400">
+                      No announcements found.
+                    </p>
                   </td>
                 </tr>
               )}
@@ -287,105 +377,210 @@ export default function AdminAnnouncementsPage() {
           </table>
         </div>
 
-        {/* footer */}
         {!loading && filteredAnnouncements.length > 0 && (
-          <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9" }}>
-            <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>
-              Showing <strong style={{ color: "#475569" }}>{filteredAnnouncements.length}</strong> of{" "}
-              <strong style={{ color: "#475569" }}>{announcements.length}</strong> announcements
+          <div className="border-t border-slate-100 px-5 py-4">
+            <p className="text-sm text-slate-400">
+              Showing{" "}
+              <span className="font-semibold text-slate-600">
+                {filteredAnnouncements.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-600">
+                {announcements.length}
+              </span>{" "}
+              announcements
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Modal ── */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="h-1.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-400" />
 
-            {/* gradient top bar */}
-            <div style={{ height: 5, background: "linear-gradient(90deg, #7c3aed, #a78bfa, #6366f1)" }} />
-
-            <div style={{ padding: "24px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div className="flex items-start justify-between p-6">
               <div>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>Add Global Announcement</h2>
-                <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 0" }}>Publish an important notice to selected users.</p>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Add Global Announcement
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  Publish an important notice to selected users.
+                </p>
               </div>
-              <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 8, color: "#94a3b8" }}>
-                <X style={{ width: 18, height: 18 }} />
+
+              <button
+                onClick={closeModal}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <ModalField label="Title" placeholder="e.g. School Fees Deadline" value={title} onChange={setTitle} />
+            <div className="space-y-4 px-6 pb-6">
+              <ModalField
+                label="Title"
+                placeholder="e.g. School Fees Deadline"
+                value={title}
+                onChange={setTitle}
+              />
 
-              {/* message textarea */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Message</label>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Message
+                </label>
+
                 <textarea
                   rows={4}
-                  placeholder="Write announcement message…"
+                  placeholder="Write announcement message..."
                   value={content}
-                  onChange={e => setContent(e.target.value)}
-                  style={{ width: "100%", borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#f8fafc", padding: "10px 14px", fontSize: 13, color: "#334155", outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.6 }}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed outline-none transition focus:border-violet-500"
                 />
               </div>
 
-              <ModalField label="Deadline (optional)" placeholder="" value={deadline} onChange={setDeadline} type="date" />
+              <ModalField
+                label="Deadline (optional)"
+                placeholder=""
+                value={deadline}
+                onChange={setDeadline}
+                type="date"
+              />
 
-              {/* target audience */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Target Audience</label>
-                <div style={{ position: "relative" }}>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Target Audience
+                </label>
+
+                <div className="relative">
                   <select
                     value={targetRole}
-                    onChange={e => setTargetRole(e.target.value)}
-                    style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#f8fafc", padding: "0 36px 0 14px", fontSize: 13, color: "#334155", appearance: "none", outline: "none", boxSizing: "border-box" }}
+                    onChange={(e) => setTargetRole(e.target.value)}
+                    className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pr-10 text-sm outline-none transition focus:border-violet-500"
                   >
                     <option value="all">Everyone</option>
                     <option value="teacher">Teachers</option>
                     <option value="student">Students</option>
                     <option value="parent">Parents</option>
                   </select>
-                  <ChevronDown style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#94a3b8", pointerEvents: "none" }} />
+
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 24px 20px", borderTop: "1px solid #f1f5f9" }}>
-              <button onClick={closeModal} style={{ height: 40, borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600, fontSize: 13, padding: "0 18px", cursor: "pointer" }}>
-                Cancel
-              </button>
-              <button
-                onClick={addAnnouncement}
-                disabled={saving}
-                style={{ height: 40, borderRadius: 12, border: "none", background: saving ? "#a78bfa" : "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff", fontWeight: 600, fontSize: 13, padding: "0 20px", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 2px 10px rgba(124,58,237,0.35)", opacity: saving ? 0.7 : 1 }}
-              >
-                {saving ? "Publishing…" : "Publish"}
-              </button>
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                <button
+                  onClick={closeModal}
+                  className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={addAnnouncement}
+                  disabled={saving}
+                  className="h-11 flex-1 rounded-xl bg-violet-700 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:opacity-60"
+                >
+                  {saving ? "Publishing..." : "Publish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+    </section>
+  )
+}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+function StatCard({
+  label,
+  value,
+  icon,
+  bar,
+}: {
+  label: string
+  value: number
+  icon: React.ReactNode
+  bar: string
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
+      <div className={`absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r ${bar}`} />
+
+      <div className="mt-2 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          {label}
+        </p>
+
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50">
+          {icon}
+        </div>
+      </div>
+
+      <h2 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+        {value}
+      </h2>
     </div>
   )
 }
 
-/* ─── Sub-components ─────────────────────────────────────── */
-function ModalField({ label, placeholder, value, onChange, type = "text" }: {
-  label: string; placeholder: string; value: string; onChange: (v: string) => void; type?: string
+function TargetBadge({
+  meta,
+}: {
+  meta: {
+    label: string
+    bg: string
+    text: string
+    ring: string
+    dot: string
+  }
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+      style={{
+        background: meta.bg,
+        color: meta.text,
+        boxShadow: `0 0 0 1px ${meta.ring}`,
+      }}
+    >
+      <span
+        className="h-2 w-2 rounded-full"
+        style={{
+          background: meta.dot,
+        }}
+      />
+      {meta.label}
+    </span>
+  )
+}
+
+function ModalField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string
+  placeholder: string
+  value: string
+  onChange: (value: string) => void
+  type?: string
 }) {
   return (
     <div>
-      <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>{label}</label>
+      <label className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </label>
+
       <input
         type={type}
         placeholder={placeholder}
         value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#f8fafc", padding: "0 14px", fontSize: 13, color: "#334155", outline: "none", boxSizing: "border-box" }}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-violet-500"
       />
     </div>
   )
