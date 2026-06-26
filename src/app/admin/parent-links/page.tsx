@@ -11,6 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type Parent = {
@@ -153,27 +154,27 @@ export default function AdminParentLinksPage() {
 
   async function addLink() {
     if (!parentId || !studentId) {
-      alert("Please select parent and student.")
+      toast.error("Please select parent and student.")
       return
     }
 
     setSaving(true)
 
-    const { error } = await supabase
-      .from("parent_student_links")
-      .insert({
-        parent_id: parentId,
-        student_id: studentId,
-      })
+    const res  = await fetch("/api/admin/parent-links", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ parent_id: parentId, student_id: studentId }),
+    })
+    const json = await res.json()
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok) {
+      toast.error(json.error || "Failed to create link.")
       setSaving(false)
       return
     }
 
+    toast.success("Parent linked to student!")
     await fetchLinks()
-
     setSaving(false)
     closeModal()
   }
