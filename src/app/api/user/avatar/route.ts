@@ -5,7 +5,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export async function POST(req: Request) {
-  const auth = await requireAuth()
+  const auth = await requireAuth(req)
   if (!auth.ok) return auth.response
 
   const formData = await req.formData()

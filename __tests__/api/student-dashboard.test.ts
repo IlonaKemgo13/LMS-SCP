@@ -17,6 +17,8 @@ jest.mock('@/lib/api-helpers', () => ({
 
 import { GET } from '@/app/api/student/dashboard/route'
 
+const mockRequest = new Request('http://localhost/api/student/dashboard')
+
 function makeStudentAuth(supabase: unknown = null) {
   return {
     ok: true as const,
@@ -102,7 +104,7 @@ describe('GET /api/student/dashboard', () => {
       ok: false,
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     })
-    const res = await GET()
+    const res = await GET(mockRequest)
     expect(res.status).toBe(401)
   })
 
@@ -111,13 +113,13 @@ describe('GET /api/student/dashboard', () => {
       ok: false,
       response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     })
-    const res = await GET()
+    const res = await GET(mockRequest)
     expect(res.status).toBe(403)
   })
 
   it('returns 200 with correct structure for authenticated student', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('profile')
@@ -129,7 +131,7 @@ describe('GET /api/student/dashboard', () => {
 
   it('returns profile data in response', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(body.profile).not.toBeNull()
     expect(body.profile.full_name).toBe('Test Student')
@@ -137,28 +139,28 @@ describe('GET /api/student/dashboard', () => {
 
   it('returns enrollments array', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(Array.isArray(body.enrollments)).toBe(true)
   })
 
   it('returns announcements array', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(Array.isArray(body.announcements)).toBe(true)
   })
 
   it('returns recentGrades array', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(Array.isArray(body.recentGrades)).toBe(true)
   })
 
   it('returns recordingCount as number', async () => {
     mockRequireAuth.mockResolvedValue(makeStudentAuth())
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(typeof body.recordingCount).toBe('number')
   })
@@ -206,7 +208,7 @@ describe('GET /api/student/dashboard', () => {
       }),
     }
     mockRequireAuth.mockResolvedValue(makeStudentAuth(emptySupabase))
-    const res = await GET()
+    const res = await GET(mockRequest)
     const body = await res.json()
     expect(body.enrollments).toEqual([])
     expect(body.announcements).toEqual([])
