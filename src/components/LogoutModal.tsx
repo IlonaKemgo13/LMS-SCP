@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
-import { useRouter } from "next/navigation"
 import { LogOut, X } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth-context"
 
 export default function LogoutModal() {
-  const router = useRouter()
-  const supabase = createClient()
+  const { signOut } = useAuth()
 
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -21,11 +19,7 @@ export default function LogoutModal() {
   async function handleLogout() {
     try {
       setLoading(true)
-
-      await supabase.auth.signOut()
-
-      router.push("/")
-      router.refresh()
+      await signOut()
     } catch (error) {
       console.error(error)
     } finally {

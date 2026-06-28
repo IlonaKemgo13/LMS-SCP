@@ -92,19 +92,22 @@ export default function TeacherCourseDetailsPage() {
         .from("announcements")
         .select("id, title, content, deadline, created_at")
         .eq("course_id", courseId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(50),
 
       supabase
         .from("recordings")
         .select("id, title, description, file_url, created_at")
         .eq("course_id", courseId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(50),
 
       supabase
         .from("materials")
         .select("id, title, file_url, created_at")
         .eq("course_id", courseId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(50),
 
       supabase
         .from("enrollments")
@@ -118,7 +121,8 @@ export default function TeacherCourseDetailsPage() {
           )
         `)
         .eq("course_id", courseId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(100),
     ])
 
     if (courseResponse.data) {

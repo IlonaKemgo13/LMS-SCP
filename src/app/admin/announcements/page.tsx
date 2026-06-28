@@ -11,6 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type Announcement = {
@@ -122,33 +123,32 @@ export default function AdminAnnouncementsPage() {
 
   async function addAnnouncement() {
     if (!title || !content) {
-      alert("Please enter title and message.")
+      toast.error("Please enter title and message.")
       return
     }
 
     setSaving(true)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const { error } = await supabase.from("announcements").insert({
-      title,
-      content,
-      deadline: deadline || null,
-      created_by: user?.id || null,
-      is_global: true,
-      target_role: targetRole,
-      course_id: null,
-      teacher_id: null,
+    const res  = await fetch("/api/admin/announcements", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        title,
+        content,
+        deadline:    deadline    || undefined,
+        target_role: targetRole,
+        is_global:   true,
+      }),
     })
+    const json = await res.json()
 
-    if (error) {
-      alert(error.message)
+    if (!res.ok) {
+      toast.error(json.error || "Failed to publish announcement.")
       setSaving(false)
       return
     }
 
+    toast.success("Announcement published!")
     await fetchAnnouncements()
     setSaving(false)
     closeModal()

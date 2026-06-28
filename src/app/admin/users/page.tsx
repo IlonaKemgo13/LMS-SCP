@@ -8,7 +8,6 @@ import {
   Search,
   ShieldOff,
   X,
-  Users,
   ChevronDown,
   Save,
   AlertTriangle,
@@ -16,6 +15,7 @@ import {
   CalendarDays,
   Shield,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 
 type User = {
@@ -122,40 +122,32 @@ export default function AdminUsersPage() {
 
   async function saveUser() {
     if (!fullName || !email || !password || !role) {
-      alert("Please fill all fields.")
+      toast.error("Please fill all fields.")
       return
     }
 
     setSaving(true)
 
-    const response = await fetch("/api/admin/create-user", {
+    const response = await fetch("/api/admin/users", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fullName,
-        email,
-        password,
-        role,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullName, email, password, role }),
     })
 
     const result = await response.json()
 
     if (!response.ok) {
-      alert(result.error || "Failed to create user.")
+      toast.error(result.error || "Failed to create user.")
       setSaving(false)
       return
     }
 
+    toast.success("User created successfully!")
     await fetchUsers()
-
     setFullName("")
     setEmail("")
     setPassword("")
     setRole("student")
-
     setSaving(false)
     setShowModal(false)
   }
@@ -167,67 +159,47 @@ export default function AdminUsersPage() {
     setEditRole(user.role)
   }
 
- async function updateUser() {
-  if (!editUser) return
+  async function updateUser() {
+    if (!editUser) return
+    setUpdating(true)
 
-  setUpdating(true)
-
-  try {
-    const response = await fetch(
-      "/api/admin/update-user",
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: editUser.id,
-          fullName: editName,
-          email: editEmail,
-          role: editRole,
-        }),
-      }
-    )
-
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editUser.id, fullName: editName, email: editEmail, role: editRole }),
+    })
     const result = await response.json()
 
     if (!response.ok) {
-      alert(result.error || "Failed to update user.")
+      toast.error(result.error || "Failed to update user.")
       setUpdating(false)
       return
     }
 
+    toast.success("User updated!")
     await fetchUsers()
-
     setUpdating(false)
     setEditUser(null)
-  } catch (error) {
-    console.error(error)
-
-    alert("Something went wrong.")
-    setUpdating(false)
   }
-}
   async function disableAccount() {
     if (!disableUser) return
-
     setDisabling(true)
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        role: "disabled",
-      })
-      .eq("id", disableUser.id)
+    const response = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: disableUser.id }),
+    })
+    const result = await response.json()
 
-    if (error) {
-      alert(error.message)
+    if (!response.ok) {
+      toast.error(result.error || "Failed to disable account.")
       setDisabling(false)
       return
     }
 
+    toast.success("Account disabled.")
     await fetchUsers()
-
     setDisabling(false)
     setDisableUser(null)
   }
