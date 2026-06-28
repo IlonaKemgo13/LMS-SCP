@@ -87,10 +87,9 @@ export default function ParentDashboard() {
           // 4. Fetch all data in parallel (fast)
           const [studentsResult, gradesResult, announcementsResult] = await Promise.all([
             supabase.from("profiles").select("*").in("id", studentIds),
-            supabase.from("grades").select("grade, student_id").in("student_id", studentIds),
+            supabase.from("grades").select("score, max_score, student_id").in("student_id", studentIds),
             supabase.from("announcements")
               .select("*")
-              .in("student_id", studentIds)
               .order("created_at", { ascending: false })
               .limit(5)
           ]);
@@ -106,7 +105,10 @@ export default function ParentDashboard() {
           if (gradesResult.error) {
             console.error("Grades error:", gradesResult.error);
           } else if (gradesResult.data && gradesResult.data.length > 0) {
-            const average = gradesResult.data.reduce((sum, g) => sum + (g.grade || 0), 0) / gradesResult.data.length;
+            const average = gradesResult.data.reduce(
+              (sum, g) => sum + (g.max_score > 0 ? (g.score / g.max_score) * 100 : 0),
+              0
+            ) / gradesResult.data.length;
             setAvgGrade(average.toFixed(1));
           }
           
