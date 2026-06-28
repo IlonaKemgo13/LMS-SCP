@@ -52,6 +52,9 @@ export const createGradeSchema = z.object({
   assessment_type: z.string().min(1, "Assessment type is required"),
   score:           z.number().min(0).max(10000),
   max_score:       z.number().min(1).max(10000),
+}).refine((data) => data.score <= data.max_score, {
+  message: "Score cannot exceed max score",
+  path:    ["score"],
 })
 
 export const updateGradeSchema = z.object({
