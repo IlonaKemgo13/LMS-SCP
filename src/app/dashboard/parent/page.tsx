@@ -1,113 +1,330 @@
-"use client"
+// src/app/dashboard/parent/page.tsx
 
-import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
-import { useParentDashboard } from "@/lib/hooks/useParentData"
+"use client";
 
-export default function ParentDashboardPage() {
-  const { profile } = useAuth()
-  const { data, isLoading } = useParentDashboard()
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { 
+  Bell, BookOpen, 
+  Users, Calendar, TrendingUp, AlertCircle,
+  ChevronRight, GraduationCap, MessageSquare
+} from "lucide-react";
 
-  const children: any[]      = data?.children ?? []
-  const recentGrades: any[]  = data?.recentGrades ?? []
-  const announcements: any[] = data?.announcements ?? []
+export default function ParentDashboard() {
+  const supabase = createClient();
+  const router = useRouter();
+  
+  // State management - NO LOADING STATE!
+  const [parent, setParent] = useState<any>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  
+  // Dashboard data states - start with default values
+  const [studentsCount, setStudentsCount] = useState(0);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
+  const [avgGrade, setAvgGrade] = useState<string>("N/A");
+  const [announcementsCount, setAnnouncementsCount] = useState(0);
+  const [deadlinesCount, setDeadlinesCount] = useState(0);
+  const [recentAnnouncements, setRecentAnnouncements] = useState<any[]>([]);
+  
+  // Track if data has been fetched at least once
+  const [hasFetched, setHasFetched] = useState(false);
 
+  useEffect(() => {
+    async function fetchParentData() {
+      try {
+        // 1. Get user (fast)
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          router.push('/');
+          return;
+        }
+        
+        // 2. Get profile (fast)
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, full_name")
+          .eq("id", user.id)
+          .single();
+        
+        if (profileError || !profile) {
+          router.push('/');
+          return;
+        }
+        
+        if (profile.role !== 'parent') {
+          setAccessDenied(true);
+          if (profile.role === 'student') {
+            router.push('/dashboard/student');
+          } else if (profile.role === 'admin') {
+            router.push('/dashboard/admin');
+          } else if (profile.role === 'teacher') {
+            router.push('/dashboard/teacher');
+          } else {
+            router.push('/unauthorized');
+          }
+          return;
+        }
+        
+        setParent({ full_name: profile.full_name });
+        
+        // 3. Get links (fast)
+        const { data: links, error: linksError } = await supabase
+          .from("parent_student_links")
+          .select("student_id")
+          .eq("parent_id", user.id);
+        
+        if (linksError) {
+          console.error("Links error:", linksError);
+        }
+        
+        const studentIds = links?.map((link) => link.student_id) || [];
+        setStudentsCount(studentIds.length);
+        
+        if (studentIds.length > 0) {
+          // 4. Fetch all data in parallel (fast)
+          const [studentsResult, gradesResult, announcementsResult] = await Promise.all([
+            supabase.from("profiles").select("*").in("id", studentIds),
+            supabase.from("grades").select("score, max_score, student_id").in("student_id", studentIds),
+            supabase.from("announcements")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(5)
+          ]);
+          
+          // Process students
+          if (studentsResult.error) {
+            console.error("Students error:", studentsResult.error);
+          } else {
+            setStudentsList(studentsResult.data || []);
+          }
+          
+          // Process grades
+          if (gradesResult.error) {
+            console.error("Grades error:", gradesResult.error);
+          } else if (gradesResult.data && gradesResult.data.length > 0) {
+            const average = gradesResult.data.reduce(
+              (sum, g) => sum + (g.max_score > 0 ? (g.score / g.max_score) * 100 : 0),
+              0
+            ) / gradesResult.data.length;
+            setAvgGrade(average.toFixed(1));
+          }
+          
+          // Process announcements
+          if (announcementsResult.error) {
+            console.error("Announcements error:", announcementsResult.error);
+          } else {
+            setAnnouncementsCount(announcementsResult.data?.length || 0);
+            setRecentAnnouncements(announcementsResult.data || []);
+          }
+        }
+        
+        setDeadlinesCount(3);
+        setHasFetched(true);
+        
+      } catch (error) {
+        console.error("Fetch error:", error);
+        setHasFetched(true);
+      }
+    }
+    
+    fetchParentData();
+  }, [supabase, router]);
+
+  // Redirect if access denied
+  if (accessDenied) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-2xl max-w-md text-center mx-auto">
+        <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+        <p className="text-yellow-800 font-medium">Redirecting to your dashboard...</p>
+        <p className="text-yellow-600 text-sm mt-2">You do not have parent access.</p>
+      </div>
+    );
+  }
+
+  // Show error ONLY if data fetch failed
+  if (hasFetched && !parent) {
+    return (
+      <div className="bg-red-50 border border-red-200 p-6 rounded-2xl max-w-md text-center mx-auto">
+        <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-3" />
+        <p className="text-red-800 text-center">Profile not found. Please login again.</p>
+        <button
+          onClick={() => router.push('/')}
+          className="mt-4 w-full px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition"
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
+
+  // ✅ DASHBOARD SHOWS IMMEDIATELY - NO SPINNER!
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl p-6 text-white shadow-xl" style={{ background: "linear-gradient(to right, var(--color-parent-hero-from), var(--color-parent-hero-to))" }}>
-        <p className="text-sm font-semibold uppercase tracking-widest opacity-70">Smart Communication Portal</p>
-        <h1 className="mt-2 text-3xl font-bold">Parent Workspace</h1>
-        <p className="mt-2 opacity-80">
-          Welcome back, {profile?.full_name ?? "Parent"}! Monitor your students' academic progress and stay updated.
+      {/* Hero Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#a855f7] p-8 text-white shadow-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Smart Communication Portal</span>
+        </div>
+        <h1 className="text-3xl font-bold">Parent Workspace</h1>
+        <p className="mt-3 text-white/80 max-w-2xl">
+          Welcome back, {parent?.full_name || "Parent"}! Monitor your students' academic
+          progress, stay updated with announcements, and track grades.
         </p>
-      </section>
+      </div>
 
-      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          ["Linked Students", isLoading ? "..." : String(children.length), "Under your account"],
-          ["Announcements",   isLoading ? "..." : String(announcements.length), "Recent updates"],
-          ["Grade Records",   isLoading ? "..." : String(recentGrades.length),  "Recent activity"],
-        ].map(([label, value, desc]) => (
-          <div key={label} className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{label}</p>
-            <h3 className="mt-2 text-3xl font-bold">{value}</h3>
-            <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>{desc}</p>
+      {/* Stats Cards */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-indigo-50 hover:shadow-md transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-11 w-11 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <Users className="h-5 w-5 text-indigo-600" />
+            </div>
+            <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Total</span>
           </div>
-        ))}
-      </section>
-
-      <section className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)" }}>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold">Recent Announcements</h2>
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Stay updated with latest news</p>
-          </div>
-          <Link href="/dashboard/parent/announcements" className="text-sm font-semibold" style={{ color: "var(--color-parent-accent)" }}>
-            View all →
-          </Link>
-        </div>
-        <div className="space-y-4">
-          {isLoading ? (
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>
-          ) : announcements.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>No announcements yet.</p>
-          ) : (
-            announcements.map((ann: any) => (
-              <div key={ann.id} className="flex items-start gap-4 rounded-xl p-4" style={{ background: "var(--color-neutral-50)" }}>
-                <div>
-                  <h3 className="font-semibold">{ann.title}</h3>
-                  <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>{ann.content || "No content available"}</p>
-                  <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
-                    {ann.created_at ? new Date(ann.created_at).toLocaleDateString() : "Recent"}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl p-6 text-white shadow-sm" style={{ background: "linear-gradient(to right, var(--color-parent-hero-from), var(--color-parent-hero-to))" }}>
-          <h3 className="text-lg font-bold mb-2">Quick Actions</h3>
-          <p className="text-sm opacity-80 mb-4">Access your most used features</p>
-          <div className="space-y-2">
-            {[
-              ["View Students",      "/dashboard/parent/children"],
-              ["Check Grades",       "/dashboard/parent/grades"],
-              ["View Announcements", "/dashboard/parent/announcements"],
-            ].map(([label, href]) => (
-              <Link key={label} href={href as string} className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition">
-                <span>{label}</span>
-                <span>→</span>
-              </Link>
-            ))}
-          </div>
+          <p className="text-3xl font-bold text-slate-900">{studentsCount}</p>
+          <p className="text-sm text-slate-500 mt-0.5">Total Students</p>
         </div>
 
-        <div className="rounded-2xl border p-6 shadow-sm" style={{ background: "var(--color-bg-card)" }}>
-          <h3 className="text-lg font-bold mb-4">Linked Students</h3>
-          {isLoading ? (
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Loading...</p>
-          ) : children.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>No students linked to your account.</p>
-          ) : (
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-emerald-50 hover:shadow-md transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-11 w-11 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
+            </div>
+            <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Average</span>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{avgGrade}%</p>
+          <p className="text-sm text-slate-500 mt-0.5">Average Grade</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-purple-50 hover:shadow-md transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-11 w-11 rounded-xl bg-purple-100 flex items-center justify-center">
+              <Bell className="h-5 w-5 text-purple-600" />
+            </div>
+            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">Updates</span>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{announcementsCount}</p>
+          <p className="text-sm text-slate-500 mt-0.5">Announcements</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-orange-50 hover:shadow-md transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-11 w-11 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-orange-600" />
+            </div>
+            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">Due</span>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{deadlinesCount}</p>
+          <p className="text-sm text-slate-500 mt-0.5">Deadlines</p>
+        </div>
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* My Students */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-indigo-50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-indigo-600" />
+              <h2 className="text-lg font-bold text-slate-900">My Students</h2>
+            </div>
+            <Link href="/dashboard/parent/children" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              View all <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+          {studentsList.length > 0 ? (
             <div className="space-y-3">
-              {children.map((child: any) => (
-                <div key={child.id} className="flex items-center justify-between rounded-xl p-3" style={{ background: "var(--color-neutral-50)" }}>
-                  <div>
-                    <p className="font-semibold">{child.full_name}</p>
-                    <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>{child.email}</p>
+              {studentsList.slice(0, 3).map((student) => (
+                <div key={student.id} className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
+                    {student.full_name?.charAt(0) || "S"}
                   </div>
-                  <Link href={`/dashboard/parent/grades?student_id=${child.id}`} className="text-sm font-semibold" style={{ color: "var(--color-parent-accent)" }}>
-                    Grades →
-                  </Link>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 text-sm">{student.full_name || "Student"}</h3>
+                    <p className="text-xs text-slate-500">{student.email || "No email"}</p>
+                  </div>
                 </div>
               ))}
+              {studentsList.length > 3 && (
+                <p className="text-xs text-slate-400 text-center mt-2">+{studentsList.length - 3} more students</p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-500">
+              <Users className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm">No students linked yet</p>
             </div>
           )}
         </div>
-      </section>
+
+        {/* Recent Announcements */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-indigo-50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-purple-600" />
+              <h2 className="text-lg font-bold text-slate-900">Recent Announcements</h2>
+            </div>
+            <Link href="/dashboard/parent/announcements" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              View all <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+          {recentAnnouncements.length > 0 ? (
+            <div className="space-y-3">
+              {recentAnnouncements.slice(0, 3).map((announcement, index) => (
+                <div key={index} className="p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                  <div className="flex items-start gap-2">
+                    <Bell className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-900 text-sm">{announcement.title || "New Announcement"}</h3>
+                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{announcement.content || "No content available"}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {announcement.created_at ? new Date(announcement.created_at).toLocaleDateString() : "Recent"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-500">
+              <Bell className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm">No announcements yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#a855f7] rounded-2xl shadow-lg p-6 text-white">
+        <h3 className="text-lg font-bold mb-1">Quick Actions</h3>
+        <p className="text-sm text-white/70 mb-4">Access your most used features</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link href="/dashboard/parent/children" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition group">
+            <span className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              View Students
+            </span>
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition" />
+          </Link>
+          <Link href="/dashboard/parent/grades" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition group">
+            <span className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Check Grades
+            </span>
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition" />
+          </Link>
+          <Link href="/dashboard/parent/announcements" className="flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/20 transition group">
+            <span className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              View Announcements
+            </span>
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition" />
+          </Link>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
