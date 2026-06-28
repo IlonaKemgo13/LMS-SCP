@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/api-helpers"
 import { paginationSchema } from "@/lib/validations"
 
 export async function GET(req: Request) {
-  const auth = await requireAuth("parent")
+  const auth = await requireAuth(req, "parent")
   if (!auth.ok) return auth.response
 
   const { searchParams } = new URL(req.url)

@@ -4,7 +4,7 @@ import { changePasswordSchema } from "@/lib/validations"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
-  const auth = await requireAuth()
+  const auth = await requireAuth(req)
   if (!auth.ok) return auth.response
 
   const body = await req.json()

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/api-helpers"
 
-export async function GET() {
-  const auth = await requireAuth("teacher")
+export async function GET(req: Request) {
+  const auth = await requireAuth(req, "teacher")
   if (!auth.ok) return auth.response
 
   const [

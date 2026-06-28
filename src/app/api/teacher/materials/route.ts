@@ -17,7 +17,7 @@ const ALLOWED_TYPES = [
 const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 export async function POST(req: Request) {
-  const auth = await requireAuth("teacher")
+  const auth = await requireAuth(req, "teacher")
   if (!auth.ok) return auth.response
 
   const formData = await req.formData()

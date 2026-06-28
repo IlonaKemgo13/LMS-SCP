@@ -65,6 +65,9 @@ export default function StudentGradesPage() {
                   <div key={grade.id} className="grid gap-4 rounded-2xl border p-5 md:grid-cols-5 md:items-center">
                     <div className="md:col-span-2">
                       <p className="font-bold">{grade.courses?.title || "Unknown Course"}</p>
+                      <p className="mt-0.5 text-sm font-medium" style={{ color: "var(--color-student-accent)" }}>
+                        {grade.assessment_name || "Untitled Assessment"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>Type</p>
