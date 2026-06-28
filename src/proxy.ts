@@ -63,6 +63,24 @@ export async function proxy(request: NextRequest) {
 
   const role = profile?.role as string | undefined
 
+  // ── Disabled account → sign out and bounce to login, before anything else ──
+  // roleDashboard(undefined/"disabled") resolves to "/", so if this ran after
+  // the "pathname === '/'" check below it would redirect "/" → "/" forever.
+  if (role === "disabled") {
+    await supabase.auth.signOut()
+
+    const response = pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "Account disabled" }, { status: 403 })
+      : NextResponse.redirect(new URL("/", request.url))
+
+    // Carry over the cookies signOut() just cleared on supabaseResponse.
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value, cookie)
+    })
+
+    return response
+  }
+
   // ── Authenticated user hits login page → send to their dashboard ──────────
   if (pathname === "/") {
     const url = request.nextUrl.clone()

@@ -57,6 +57,9 @@ export async function PATCH(req: Request) {
   const { error: authError } = await admin.auth.admin.updateUserById(id, {
     email,
     user_metadata: { full_name: fullName, role },
+    // Re-enabling via PATCH must lift a previous disable-ban, and setting
+    // role to "disabled" here should ban the same as DELETE does.
+    ban_duration: role === "disabled" ? "876000h" : "none",
   })
   if (authError) {
     return NextResponse.json({ error: authError.message }, { status: 400 })
@@ -84,6 +87,15 @@ export async function DELETE(req: Request) {
 
   const { id } = parsed.data
   const admin = createAdminClient()
+
+  // Ban at the auth level so the user's existing session stops working
+  // immediately, instead of relying solely on the profile role flag.
+  const { error: authError } = await admin.auth.admin.updateUserById(id, {
+    ban_duration: "876000h",
+  })
+  if (authError) {
+    return NextResponse.json({ error: authError.message }, { status: 400 })
+  }
 
   const { error } = await admin
     .from("profiles")
