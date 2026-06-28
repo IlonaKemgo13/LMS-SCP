@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
+import { createClient as createSupabaseJsClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
 function roleDashboard(role: string | undefined | null): string {
@@ -14,30 +15,45 @@ function roleDashboard(role: string | undefined | null): string {
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+  // Web clients send a cookie session. The mobile app has no cookie jar, so
+  // it sends `Authorization: Bearer <access_token>` instead — without this
+  // branch, every mobile request looked unauthenticated to this middleware
+  // and was rejected before ever reaching the route handler.
+  const authHeader = request.headers.get("authorization")
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
+
+  const supabase = bearerToken
+    ? createSupabaseJsClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${bearerToken}` } } }
+      )
+    : createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) =>
+                request.cookies.set(name, value)
+              )
+              supabaseResponse = NextResponse.next({ request })
+              cookiesToSet.forEach(({ name, value, options }) =>
+                supabaseResponse.cookies.set(name, value, options)
+              )
+            },
+          },
+        }
+      )
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = bearerToken
+    ? await supabase.auth.getUser(bearerToken)
+    : await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
@@ -67,7 +83,7 @@ export async function proxy(request: NextRequest) {
   // roleDashboard(undefined/"disabled") resolves to "/", so if this ran after
   // the "pathname === '/'" check below it would redirect "/" → "/" forever.
   if (role === "disabled") {
-    await supabase.auth.signOut()
+    if (!bearerToken) await supabase.auth.signOut()
 
     const response = pathname.startsWith("/api/")
       ? NextResponse.json({ error: "Account disabled" }, { status: 403 })
@@ -136,7 +152,20 @@ export async function proxy(request: NextRequest) {
 
   // /api/auth/* — any authenticated user (already authenticated above)
 
-  return supabaseResponse
+  // ── Forward the identity we already verified above ──────────────────────────
+  // requireAuth() trusts these instead of repeating the getUser() + profile
+  // round-trip we just did. Always overwritten here, never left as whatever
+  // the original client sent, so a request can't spoof its own identity.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-verified-user-id", user.id)
+  requestHeaders.set("x-verified-user-role", role ?? "")
+
+  const finalResponse = NextResponse.next({ request: { headers: requestHeaders } })
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    finalResponse.cookies.set(cookie.name, cookie.value, cookie)
+  })
+
+  return finalResponse
 }
 
 export const config = {
@@ -167,5 +196,6 @@ export const config = {
     "/api/student/:path*",
     "/api/parent/:path*",
     "/api/auth/:path*",
+    "/api/user/:path*",
   ],
 }

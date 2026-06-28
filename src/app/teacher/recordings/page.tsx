@@ -128,8 +128,16 @@ export default function TeacherRecordingsPage() {
 
       mediaRecorder.start()
       setIsRecording(true)
-    } catch {
-      toast.error("Microphone access was denied or is unavailable.")
+    } catch (err) {
+      if (!window.isSecureContext) {
+        toast.error("Microphone access requires HTTPS or localhost — this page is loaded over an insecure connection.")
+      } else if (err instanceof DOMException && err.name === "NotAllowedError") {
+        toast.error("Microphone access was denied. Allow it in your browser's site settings and try again.")
+      } else if (err instanceof DOMException && err.name === "NotFoundError") {
+        toast.error("No microphone was found on this device.")
+      } else {
+        toast.error("Microphone access was denied or is unavailable.")
+      }
     }
   }
 
