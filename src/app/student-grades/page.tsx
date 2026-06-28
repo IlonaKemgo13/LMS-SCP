@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Grade = {
   id: string;
+  assessment_name: string;
   assessment_type: string;
   score: number;
   max_score: number;
@@ -49,7 +50,7 @@ export default function StudentGradesPage() {
       const { data } = await supabase
         .from("grades")
         .select(
-          "id, assessment_type, score, max_score, course_id, courses(title, description, code)"
+          "id, assessment_name, assessment_type, score, max_score, course_id, courses(title, description, code)"
         )
         .eq("student_id", userId);
 
@@ -293,6 +294,9 @@ export default function StudentGradesPage() {
                         <div className="md:col-span-2">
                           <p className="font-bold text-sm sm:text-base">
                             {grade.courses?.title || "Unknown Course"}
+                          </p>
+                          <p className="mt-0.5 text-xs font-medium text-blue-600 sm:text-sm">
+                            {grade.assessment_name || "Untitled Assessment"}
                           </p>
                           <p className="text-xs text-slate-500 sm:text-sm">
                             {grade.courses?.description || "No description"}
