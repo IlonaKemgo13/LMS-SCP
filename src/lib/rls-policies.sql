@@ -229,6 +229,16 @@ create policy "grades: teacher update own courses"
     )
   );
 
+-- Teachers can delete grades for their own courses
+create policy "grades: teacher delete own courses"
+  on public.grades for delete
+  using (
+    public.get_my_role() = 'teacher'
+    and course_id in (
+      select id from public.courses where teacher_id = auth.uid()
+    )
+  );
+
 -- Parents can view grades for their linked children
 create policy "grades: parent linked children"
   on public.grades for select

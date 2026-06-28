@@ -137,6 +137,14 @@ export default function TeacherGradesPage() {
       return
     }
 
+    const numericScore = Number(score)
+    const numericMaxScore = Number(maxScore)
+
+    if (numericScore > numericMaxScore) {
+      toast.error("Score cannot exceed max score.")
+      return
+    }
+
     const res = await fetch("/api/teacher/grades", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -145,8 +153,8 @@ export default function TeacherGradesPage() {
         course_id:       selectedCourse,
         assessment_name: assessmentName,
         assessment_type: assessmentType,
-        score:           Number(score),
-        max_score:       Number(maxScore),
+        score:           numericScore,
+        max_score:       numericMaxScore,
       }),
     })
     const json = await res.json()
