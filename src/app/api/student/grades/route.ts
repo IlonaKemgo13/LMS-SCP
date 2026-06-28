@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
   let query = auth.supabase
     .from("grades")
-    .select("id, assessment_type, score, max_score, created_at, course_id, courses(title)", { count: "exact" })
+    .select("id, assessment_name, assessment_type, score, max_score, created_at, course_id, courses(title)", { count: "exact" })
     .eq("student_id", auth.userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + pageSize - 1)
