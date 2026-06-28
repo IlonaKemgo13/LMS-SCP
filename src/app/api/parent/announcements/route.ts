@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
   // Get course IDs for all linked children
   const { data: links } = await auth.supabase
-    .from("parent_links")
+    .from("parent_student_links")
     .select("student_id")
     .eq("parent_id", auth.userId)
 

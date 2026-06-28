@@ -17,10 +17,14 @@ export async function GET(req: Request) {
   const studentId = searchParams.get("student_id")
 
   // Verify the requested student is linked to this parent
-  const { data: links } = await auth.supabase
-    .from("parent_links")
+  const { data: links, error: linksError } = await auth.supabase
+    .from("parent_student_links")
     .select("student_id")
     .eq("parent_id", auth.userId)
+
+  if (linksError) {
+    return NextResponse.json({ error: linksError.message }, { status: 400 })
+  }
 
   const childIds = (links ?? []).map((l) => l.student_id)
 

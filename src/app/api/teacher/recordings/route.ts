@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/api-helpers"
 
 const ALLOWED_TYPES = [
+  "audio/webm",
   "video/webm",
   "audio/mpeg",
   "video/mp4",
