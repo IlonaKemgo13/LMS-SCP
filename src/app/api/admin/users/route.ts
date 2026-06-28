@@ -8,7 +8,7 @@ import {
 } from "@/lib/validations"
 
 export async function POST(req: Request) {
-  const auth = await requireAuth("admin")
+  const auth = await requireAuth(req, "admin")
   if (!auth.ok) return auth.response
 
   const body = await req.json()
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireAuth("admin")
+  const auth = await requireAuth(req, "admin")
   if (!auth.ok) return auth.response
 
   const body = await req.json()
@@ -75,7 +75,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const auth = await requireAuth("admin")
+  const auth = await requireAuth(req, "admin")
   if (!auth.ok) return auth.response
 
   const body = await req.json()

@@ -3,7 +3,7 @@ import { requireAuth, validationError } from "@/lib/api-helpers"
 import { createCourseSchema } from "@/lib/validations"
 
 export async function POST(req: Request) {
-  const auth = await requireAuth("admin")
+  const auth = await requireAuth(req, "admin")
   if (!auth.ok) return auth.response
 
   const body = await req.json()

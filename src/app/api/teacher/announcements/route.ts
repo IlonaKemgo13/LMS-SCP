@@ -6,7 +6,7 @@ import {
 } from "@/lib/validations"
 
 export async function POST(req: Request) {
-  const auth = await requireAuth("teacher")
+  const auth = await requireAuth(req, "teacher")
   if (!auth.ok) return auth.response
 
   const body = await req.json()
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireAuth("teacher")
+  const auth = await requireAuth(req, "teacher")
   if (!auth.ok) return auth.response
 
   const body = await req.json()
