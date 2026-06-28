@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const { data, count, error } = await auth.supabase
     .from("enrollments")
     .select(
-      "course_id, enrolled_at, courses(id, title, description, teacher_id, profiles!courses_teacher_id_fkey(full_name))",
+      "course_id, courses(id, title, description, teacher_id, profiles!courses_teacher_id_fkey(full_name))",
       { count: "exact" }
     )
     .eq("student_id", auth.userId)
