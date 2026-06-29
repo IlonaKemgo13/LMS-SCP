@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   const path = `recordings/${course_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const { error: uploadError } = await auth.supabase.storage
-    .from("lms-files")
+    .from("recordings")
     .upload(path, file, { contentType: file.type, upsert: false })
 
   if (uploadError) {
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   }
 
   const { data: { publicUrl } } = auth.supabase.storage
-    .from("lms-files")
+    .from("recordings")
     .getPublicUrl(path)
 
   const { error: dbError } = await auth.supabase.from("recordings").insert({
